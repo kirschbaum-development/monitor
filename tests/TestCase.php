@@ -6,6 +6,7 @@ namespace Tests;
 
 use Closure;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Kirschbaum\Monitor\MonitorServiceProvider;
 use Mockery\MockInterface;
 use Orchestra\Testbench\Concerns\WithWorkbench;
@@ -27,6 +28,18 @@ class TestCase extends BaseTestCase
         parent::setUp();
 
         Http::preventingStrayRequests();
+    }
+
+    /**
+     * Set up Log facade mocking to handle both explicit expectations and channel() calls.
+     * Call this at the beginning of tests that need to mock Log methods.
+     */
+    protected function setupLogMocking(): void
+    {
+        // Allow channel() calls that may happen during Carbon/exception handling
+        Log::shouldReceive('channel')
+            ->andReturnSelf()
+            ->byDefault();
     }
 
     /**

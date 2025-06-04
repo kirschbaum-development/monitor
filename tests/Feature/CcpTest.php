@@ -7,6 +7,8 @@ use Illuminate\Support\Facades\Log;
 use Kirschbaum\Monitor\Facades\Monitor;
 
 it('logs ccp start and end', function () {
+    $this->setupLogMocking();
+
     Log::shouldReceive('info')
         ->once()
         ->withArgs(function ($message, $context) {
@@ -29,6 +31,8 @@ it('logs ccp start and end', function () {
 });
 
 it('logs ccp failure and throws', function () {
+    $this->setupLogMocking();
+
     Config::set('app.debug', false);
     Config::set('monitor.exception_trace.enabled', true);
     Config::set('monitor.exception_trace.full_on_debug', false);
@@ -52,6 +56,8 @@ it('logs ccp failure and throws', function () {
 });
 
 it('executes onFail callback when CCP fails', function () {
+    $this->setupLogMocking();
+
     Config::set('monitor.exception_trace.enabled', false);
 
     $callbackExecuted = false;
@@ -81,6 +87,8 @@ it('executes onFail callback when CCP fails', function () {
 });
 
 it('does not execute onFail callback when CCP succeeds', function () {
+    $this->setupLogMocking();
+
     $callbackExecuted = false;
 
     Log::shouldReceive('info')->twice(); // STARTED and ENDED
@@ -96,6 +104,8 @@ it('does not execute onFail callback when CCP succeeds', function () {
 });
 
 it('handles onFail callback exceptions gracefully', function () {
+    $this->setupLogMocking();
+
     Config::set('monitor.exception_trace.enabled', false);
 
     Log::shouldReceive('info')->once(); // STARTED
@@ -119,6 +129,8 @@ it('handles onFail callback exceptions gracefully', function () {
 });
 
 it('works without onFail callback (backward compatibility)', function () {
+    $this->setupLogMocking();
+
     Log::shouldReceive('info')->twice(); // STARTED and ENDED
 
     $result = Monitor::ccp('backward_compat_test', fn () => 'success', ['key' => 'value']);
@@ -127,6 +139,8 @@ it('works without onFail callback (backward compatibility)', function () {
 });
 
 it('passes correct context data to onFail callback', function () {
+    $this->setupLogMocking();
+
     Config::set('monitor.exception_trace.enabled', false);
 
     $capturedContext = null;
@@ -154,6 +168,8 @@ it('passes correct context data to onFail callback', function () {
 });
 
 it('allows onFail callback to perform escalation actions', function () {
+    $this->setupLogMocking();
+
     Config::set('monitor.exception_trace.enabled', false);
 
     $alertSent = false;
@@ -181,6 +197,8 @@ it('allows onFail callback to perform escalation actions', function () {
 });
 
 it('provides complete exception information to onFail callback', function () {
+    $this->setupLogMocking();
+
     Config::set('monitor.exception_trace.enabled', true);
     Config::set('app.debug', true);
     Config::set('monitor.exception_trace.full_on_debug', true);
@@ -211,6 +229,8 @@ it('provides complete exception information to onFail callback', function () {
 // NEW COMPREHENSIVE TESTS:
 
 it('does not include exception trace when disabled', function () {
+    $this->setupLogMocking();
+
     Config::set('monitor.exception_trace.enabled', false);  // This tests line 67
 
     Log::shouldReceive('info')->once();  // STARTED log
@@ -229,6 +249,8 @@ it('does not include exception trace when disabled', function () {
 });
 
 it('includes full trace when debug mode is enabled', function () {
+    $this->setupLogMocking();
+
     Config::set('app.debug', true);
     Config::set('monitor.exception_trace.enabled', true);
     Config::set('monitor.exception_trace.full_on_debug', true);
@@ -250,6 +272,8 @@ it('includes full trace when debug mode is enabled', function () {
 });
 
 it('truncates trace when not in debug mode', function () {
+    $this->setupLogMocking();
+
     Config::set('app.debug', false);
     Config::set('monitor.exception_trace.enabled', true);
     Config::set('monitor.exception_trace.full_on_debug', true);
@@ -272,6 +296,8 @@ it('truncates trace when not in debug mode', function () {
 });
 
 it('forces full trace when force_full_trace is enabled', function () {
+    $this->setupLogMocking();
+
     Config::set('app.debug', false);  // Debug off
     Config::set('monitor.exception_trace.enabled', true);
     Config::set('monitor.exception_trace.force_full_trace', true);  // But force full trace
@@ -294,6 +320,8 @@ it('forces full trace when force_full_trace is enabled', function () {
 });
 
 it('includes custom context in both success and failure logs', function () {
+    $this->setupLogMocking();
+
     $customContext = ['user_id' => 123, 'action' => 'test_action'];
 
     Log::shouldReceive('info')
@@ -319,6 +347,8 @@ it('includes custom context in both success and failure logs', function () {
 });
 
 it('preserves custom context in failure logs', function () {
+    $this->setupLogMocking();
+
     $customContext = ['user_id' => 456, 'critical_action' => true];
 
     Config::set('monitor.exception_trace.enabled', false); // No exception details
@@ -339,6 +369,8 @@ it('preserves custom context in failure logs', function () {
 });
 
 it('includes all required fields in exception trace', function () {
+    $this->setupLogMocking();
+
     Config::set('monitor.exception_trace.enabled', true);
 
     Log::shouldReceive('info')->once();  // STARTED log
@@ -373,6 +405,8 @@ it('respects debug OR force_full_trace logic correctly', function () {
     // CRITICAL: This test catches the BooleanOrToBooleanAnd mutation
     // The logic should be: $isDebug = Config::boolean('app.debug') || Config::boolean('monitor.exception_trace.force_full_trace', false);
     // If mutated to &&, this test will fail
+
+    $this->setupLogMocking();
 
     Config::set('app.debug', false);  // Debug is OFF
     Config::set('monitor.exception_trace.enabled', true);

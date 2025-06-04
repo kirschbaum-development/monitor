@@ -83,6 +83,8 @@ it('handles various empty and whitespace inputs correctly', function () {
 });
 
 it('logs with enriched context', function () {
+    $this->setupLogMocking();
+
     config()->set('monitor.origin_path_wrapper', 'square');
 
     Log::shouldReceive('info')
@@ -108,6 +110,8 @@ it('logs with enriched context', function () {
 });
 
 it('logs all levels correctly', function () {
+    $this->setupLogMocking();
+
     config()->set('monitor.origin_path_wrapper', 'none');
 
     $levels = ['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'];
@@ -126,6 +130,8 @@ it('logs all levels correctly', function () {
 });
 
 it('logs via the generic log() method', function () {
+    $this->setupLogMocking();
+
     config()->set('monitor.origin_path_wrapper', 'none');
 
     Log::shouldReceive('info')
@@ -157,6 +163,8 @@ it('handles empty replacer arrays', function () {
 });
 
 it('handles custom context in logging', function () {
+    $this->setupLogMocking();
+
     config()->set('monitor.origin_path_wrapper', 'none');
 
     $customContext = ['user_id' => 123, 'action' => 'test'];
