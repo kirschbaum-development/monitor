@@ -31,7 +31,7 @@ class TestCase extends BaseTestCase
     }
 
     /**
-     * Set up Log facade mocking to handle Laravel infrastructure calls without 
+     * Set up Log facade mocking to handle Laravel infrastructure calls without
      * interfering with explicit test expectations for application logging.
      */
     protected function setupLogMocking(): void
@@ -42,7 +42,7 @@ class TestCase extends BaseTestCase
         Log::shouldReceive('channel')
             ->andReturnSelf()
             ->byDefault();
-            
+
         // Laravel's HandleExceptions calls warning() for deprecation notices
         Log::shouldReceive('warning')
             ->andReturnSelf()
