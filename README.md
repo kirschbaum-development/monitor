@@ -3,9 +3,9 @@
 ![Laravel Supported Versions](https://img.shields.io/badge/laravel-10.x/11.x/12.x-green.svg)
 [![MIT Licensed](https://img.shields.io/badge/license-MIT-brightgreen.svg?style=flat-square)](LICENSE.md)
 [![Latest Version on Packagist](https://img.shields.io/packagist/v/kirschbaum-development/monitor.svg?style=flat-square)](https://packagist.org/packages/kirschbaum-development/monitor)
-![Application Testing](https://github.com/kirschbaum-development/monitor/actions/workflows/application-testing.yml/badge.svg)
+![Application Testing](https://github.com/kirschbaum-development/monitor/actions/workflows/php-tests.yml/badge.svg)
 ![Static Analysis](https://github.com/kirschbaum-development/monitor/actions/workflows/static-analysis.yml/badge.svg)
-![Code Style](https://github.com/kirschbaum-development/monitor/actions/workflows/code-style.yml/badge.svg)
+![Code Style](https://github.com/kirschbaum-development/monitor/actions/workflows/style-check.yml/badge.svg)
 
 Laravel Monitor is a comprehensive observability toolkit for Laravel applications. It provides structured logging, distributed tracing, performance monitoring, and Critical Control Points (CCP) to help you understand and debug your application's behavior.
 
