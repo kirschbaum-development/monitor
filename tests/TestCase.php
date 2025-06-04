@@ -31,13 +31,20 @@ class TestCase extends BaseTestCase
     }
 
     /**
-     * Set up Log facade mocking to handle both explicit expectations and channel() calls.
-     * Call this at the beginning of tests that need to mock Log methods.
+     * Set up Log facade mocking to handle Laravel infrastructure calls without 
+     * interfering with explicit test expectations for application logging.
      */
     protected function setupLogMocking(): void
     {
-        // Allow channel() calls that may happen during Carbon/exception handling
+        // Only mock the methods that Laravel's infrastructure may call in background
+        // during exception/deprecation handling, class loading, etc.
+        // These are NOT the methods we want to test explicitly in our application code
         Log::shouldReceive('channel')
+            ->andReturnSelf()
+            ->byDefault();
+            
+        // Laravel's HandleExceptions calls warning() for deprecation notices
+        Log::shouldReceive('warning')
             ->andReturnSelf()
             ->byDefault();
     }
