@@ -113,9 +113,9 @@ return [
     |--------------------------------------------------------------------------
     |
     | Configuration for how exception stack traces are handled and logged
-    | within Monitor Critical Control Points (CCP). These settings control the
-    | verbosity and detail level of exception information captured when CCP
-    | operations fail. Note: These settings only apply to CCP exception
+    | within Monitor Controlled execution blocks. These settings control the
+    | verbosity and detail level of exception information captured when Controlled
+    | operations fail. Note: These settings only apply to Controlled block exception
     | handling, not general StructuredLogger usage.
     |
     */
@@ -127,7 +127,7 @@ return [
         | Exception Trace Enabled
         |----------------------------------------------------------------------
         |
-        | Whether to include exception stack traces in CCP failure logs.
+        | Whether to include exception stack traces in Controlled block failure logs.
         | When disabled, only basic exception information (class, message,
         | file, line) will be logged without the stack trace.
         |
@@ -235,4 +235,159 @@ return [
     */
 
     'trace_header' => env('MONITOR_TRACE_HEADER', 'X-Trace-Id'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Circuit Breaker Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configuration for circuit breaker middleware and behavior.
+    |
+    */
+
+    'circuit_breaker' => [
+        'default_decay_seconds' => env('MONITOR_CIRCUIT_BREAKER_DECAY_SECONDS', 300),
+        'default_retry_after' => env('MONITOR_CIRCUIT_BREAKER_RETRY_AFTER', 300),
+        'add_cors_headers' => env('MONITOR_CIRCUIT_BREAKER_CORS_HEADERS', false),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Log Redactor Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Generalized redaction engine for scrubbing logs of sensitive or noisy
+    | values that shouldn't be persisted. This includes PII, API tokens,
+    | auth headers, large blobs, internal references, etc. Can be used for
+    | compliance, debugging hygiene, and reducing noise in critical logs.
+    |
+    */
+
+    'log_redactor' => [
+
+        /*
+        |----------------------------------------------------------------------
+        | Redactor Enabled
+        |----------------------------------------------------------------------
+        |
+        | Whether the log redactor is enabled. When disabled, no redaction
+        | will be performed on log context data.
+        |
+        */
+
+        'enabled' => env('MONITOR_LOG_REDACTOR_ENABLED', true),
+
+        /*
+        |----------------------------------------------------------------------
+        | Redact Keys
+        |----------------------------------------------------------------------
+        |
+        | Keys that always get redacted (case-insensitive match). If any
+        | context key matches these names, the entire value will be replaced
+        | with the configured replacement string.
+        |
+        */
+
+        'redact_keys' => [
+            'password',
+            'token',
+            'secret',
+            'api_key',
+            'authorization',
+            'ssn',
+            'credit_card',
+            'auth_token',
+            'bearer_token',
+            'access_token',
+            'refresh_token',
+            'session_id',
+            'private_key',
+            'client_secret',
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Regex Patterns
+        |----------------------------------------------------------------------
+        |
+        | Regex-based redaction patterns that run against string values.
+        | These patterns will match and redact specific sensitive data formats
+        | regardless of the key name.
+        |
+        */
+
+        'patterns' => [
+            'email' => '/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/',
+            'credit_card' => '/\b(?:\d[ -]*?){13,16}\b/',
+            'ssn' => '/\b\d{3}-\d{2}-\d{4}\b/',
+            'phone' => '/\+?\d[\d -]{8,14}\d/',
+            'bearer_token' => '/Bearer\s+[A-Za-z0-9\-._~+\/]+=*/',
+            'api_key' => '/(api|apikey|api_key)\s*[:=]\s*[A-Za-z0-9\-_]{20,}/i',
+            'jwt_token' => '/eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_.+\/=]*/',
+            'ipv4' => '/\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/',
+            'url_with_auth' => '/https?:\/\/[^:\/\s]+:[^@\/\s]+@[^\s]+/',
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Replacement Value
+        |----------------------------------------------------------------------
+        |
+        | The value to use when replacing sensitive data. This will be used
+        | for both key-based and pattern-based redactions.
+        |
+        */
+
+        'replacement' => env('MONITOR_LOG_REDACTOR_REPLACEMENT', '[REDACTED]'),
+
+        /*
+        |----------------------------------------------------------------------
+        | Mark Redacted
+        |----------------------------------------------------------------------
+        |
+        | When enabled, adds a '_redacted' flag to the context when any
+        | redaction occurs. This helps with debugging and compliance auditing.
+        |
+        */
+
+        'mark_redacted' => env('MONITOR_LOG_REDACTOR_MARK_REDACTED', true),
+
+        /*
+        |----------------------------------------------------------------------
+        | Maximum Value Length
+        |----------------------------------------------------------------------
+        |
+        | Maximum length for string values before they are considered "large
+        | blobs" and get redacted. Set to null to disable length-based redaction.
+        | This helps prevent large payloads from cluttering logs.
+        |
+        */
+
+        'max_value_length' => env('MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH', 10000),
+
+        /*
+        |----------------------------------------------------------------------
+        | Redact Large Objects
+        |----------------------------------------------------------------------
+        |
+        | When enabled, arrays or objects with more than the specified number
+        | of items will be redacted. This helps prevent large data structures
+        | from overwhelming log storage.
+        |
+        */
+
+        'redact_large_objects' => env('MONITOR_LOG_REDACTOR_LARGE_OBJECTS', true),
+
+        /*
+        |----------------------------------------------------------------------
+        | Maximum Object Size
+        |----------------------------------------------------------------------
+        |
+        | Maximum number of items in an array or object before it gets redacted.
+        | Only applies when redact_large_objects is enabled.
+        |
+        */
+
+        'max_object_size' => env('MONITOR_LOG_REDACTOR_MAX_OBJECT_SIZE', 50),
+    ],
 ];

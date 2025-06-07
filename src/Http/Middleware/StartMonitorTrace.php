@@ -26,6 +26,7 @@ class StartMonitorTrace
 
         /** @var Response $response */
         $response = $next($request);
+
         $response->headers->set($header, Monitor::trace()->id());
 
         return $response;

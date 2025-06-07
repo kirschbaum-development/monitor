@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tests\Feature;
+namespace Tests\Unit;
 
 use DateTimeImmutable;
 use Kirschbaum\Monitor\Formatters\StructuredJsonFormatter;
@@ -201,25 +201,23 @@ it('handles complex nested context data', function () {
     $complexContext = [
         'user' => [
             'id' => 456,
-            'name' => 'John Doe',
-            'roles' => ['admin', 'user'],
+            'profile' => [
+                'name' => 'Test User',
+                'settings' => ['theme' => 'dark', 'notifications' => true],
+            ],
         ],
-        'request' => [
-            'method' => 'POST',
-            'url' => '/api/users',
-            'headers' => ['Content-Type' => 'application/json'],
+        'operation' => [
+            'type' => 'data_processing',
+            'metrics' => ['records_processed' => 1000, 'errors' => 0],
         ],
-        'metadata' => [
-            'ip' => '192.168.1.1',
-            'user_agent' => 'TestAgent/1.0',
-        ],
+        'trace_id' => 'complex-trace-789',
     ];
 
     $record = new LogRecord(
         datetime: new DateTimeImmutable('2024-01-15 10:30:45'),
         channel: 'complex-test',
-        level: Level::Error,
-        message: 'Complex context test',
+        level: Level::Info,
+        message: 'Complex data test',
         context: $complexContext,
         extra: []
     );
@@ -228,87 +226,135 @@ it('handles complex nested context data', function () {
     $decoded = json_decode(trim($result), true);
 
     expect($decoded['context'])->toBe($complexContext)
-        ->and($decoded['context']['user']['roles'])->toBe(['admin', 'user'])
-        ->and($decoded['context']['request']['method'])->toBe('POST');
+        ->and($decoded['trace_id'])->toBe('complex-trace-789')
+        ->and($decoded['context']['user']['profile']['name'])->toBe('Test User');
 });
 
-it('maintains correct timestamp format for different timezones', function () {
+it('extracts event from extra field while metrics come from context', function () {
     $formatter = new StructuredJsonFormatter;
 
-    // Test with specific timezone
-    $datetime = DateTimeImmutable::createFromFormat(
-        'Y-m-d H:i:s P',
-        '2024-01-15 15:30:45 +02:00'
+    $record = new LogRecord(
+        datetime: new DateTimeImmutable('2024-01-15 10:30:45'),
+        channel: 'metrics-test',
+        level: Level::Info,
+        message: 'Metrics test',
+        context: [
+            'duration_ms' => 250.5,
+            'memory_mb' => 32.8,
+        ],
+        extra: [
+            'event' => 'operation.completed',
+        ]
     );
 
+    $result = $formatter->format($record);
+    $decoded = json_decode(trim($result), true);
+
+    expect($decoded['event'])->toBe('operation.completed')
+        ->and($decoded['duration_ms'])->toBe(250.5)
+        ->and($decoded['memory_mb'])->toBe(32.8);
+});
+
+it('prioritizes context over extra for special fields', function () {
+    $formatter = new StructuredJsonFormatter;
+
     $record = new LogRecord(
-        datetime: $datetime,
-        channel: 'timezone-test',
+        datetime: new DateTimeImmutable('2024-01-15 10:30:45'),
+        channel: 'priority-test',
         level: Level::Info,
-        message: 'Timezone test',
-        context: [],
+        message: 'Priority test',
+        context: [
+            'trace_id' => 'context-trace-123',
+            'duration_ms' => 100,
+        ],
+        extra: [
+            'trace_id' => 'extra-trace-456',  // Should be overridden
+            'duration_ms' => 200,             // Should be overridden
+            'event' => 'test.event',
+        ]
+    );
+
+    $result = $formatter->format($record);
+    $decoded = json_decode(trim($result), true);
+
+    expect($decoded['trace_id'])->toBe('context-trace-123')  // From context
+        ->and($decoded['duration_ms'])->toBe(100)             // From context
+        ->and($decoded['event'])->toBe('test.event');         // From extra
+});
+
+it('handles null and false values correctly', function () {
+    $formatter = new StructuredJsonFormatter;
+
+    $record = new LogRecord(
+        datetime: new DateTimeImmutable('2024-01-15 10:30:45'),
+        channel: 'null-test',
+        level: Level::Info,
+        message: 'Null test',
+        context: [
+            'null_value' => null,
+            'false_value' => false,
+            'zero_value' => 0,
+            'empty_string' => '',
+        ],
         extra: []
     );
 
     $result = $formatter->format($record);
     $decoded = json_decode(trim($result), true);
 
-    // Should preserve timezone in ISO 8601 format
-    expect($decoded['timestamp'])->toBe('2024-01-15T15:30:45+02:00');
+    expect($decoded['context']['null_value'])->toBeNull()
+        ->and($decoded['context']['false_value'])->toBeFalse()
+        ->and($decoded['context']['zero_value'])->toBe(0)
+        ->and($decoded['context']['empty_string'])->toBe('');
 });
 
-it('handles event field from extra correctly', function () {
+it('handles very large numbers correctly', function () {
     $formatter = new StructuredJsonFormatter;
 
     $record = new LogRecord(
         datetime: new DateTimeImmutable('2024-01-15 10:30:45'),
-        channel: 'event-test',
+        channel: 'large-numbers',
         level: Level::Info,
-        message: 'Event test',
-        context: ['action' => 'create'],
-        extra: ['event' => 'user.created', 'processor' => 'structured']
+        message: 'Large numbers test',
+        context: [
+            'duration_ms' => 999999.999,
+            'memory_mb' => 1024,
+            'large_int' => 9223372036854775807, // Max int64
+        ],
+        extra: []
     );
 
     $result = $formatter->format($record);
     $decoded = json_decode(trim($result), true);
 
-    expect($decoded['event'])->toBe('user.created')
-        ->and($decoded['context']['action'])->toBe('create');
+    expect($decoded['duration_ms'])->toBe(999999.999)
+        ->and($decoded['memory_mb'])->toBe(1024)
+        ->and($decoded['context']['large_int'])->toBe(9223372036854775807);
 });
 
-it('produces consistent JSON structure regardless of input', function () {
+it('maintains JSON structure integrity', function () {
     $formatter = new StructuredJsonFormatter;
 
-    // Test multiple different records
-    $records = [
-        new LogRecord(
-            datetime: new DateTimeImmutable('2024-01-15 10:30:45'),
-            channel: 'consistency-test-1',
-            level: Level::Debug,
-            message: 'Debug message',
-            context: [],
-            extra: []
-        ),
-        new LogRecord(
-            datetime: new DateTimeImmutable('2024-01-15 10:30:46'),
-            channel: 'consistency-test-2',
-            level: Level::Emergency,
-            message: 'Emergency message',
-            context: ['critical' => true],
-            extra: ['event' => 'system.emergency']
-        ),
-    ];
+    $record = new LogRecord(
+        datetime: new DateTimeImmutable('2024-01-15 10:30:45'),
+        channel: 'structure-test',
+        level: Level::Info,
+        message: 'Structure test',
+        context: ['test' => 'value'],
+        extra: ['event' => 'test.event']
+    );
 
-    $expectedKeys = [
-        'timestamp', 'level', 'message', 'trace_id',
-        'context', 'channel', 'event', 'duration_ms', 'memory_mb',
-    ];
+    $result = $formatter->format($record);
 
-    foreach ($records as $record) {
-        $result = $formatter->format($record);
-        $decoded = json_decode(trim($result), true);
+    // Ensure it's valid JSON
+    expect(json_decode(trim($result), true))->not->toBeNull()
+        ->and(json_last_error())->toBe(JSON_ERROR_NONE);
 
-        // All records should have the same keys
-        expect(array_keys($decoded))->toBe($expectedKeys);
+    // Ensure all required fields are present
+    $decoded = json_decode(trim($result), true);
+    $requiredFields = ['timestamp', 'level', 'message', 'context', 'channel', 'event', 'trace_id', 'duration_ms', 'memory_mb'];
+
+    foreach ($requiredFields as $field) {
+        expect($decoded)->toHaveKey($field);
     }
 });

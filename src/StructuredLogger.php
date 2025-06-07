@@ -9,12 +9,15 @@ use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use Kirschbaum\Monitor\Enums\OriginWrapper;
 use Kirschbaum\Monitor\Facades\Monitor;
+use Kirschbaum\Monitor\Support\LogRedactor;
 
 class StructuredLogger
 {
     protected string $origin;
 
     protected string $rawOrigin;
+
+    protected LogRedactor $redactor;
 
     public static function from(string|object $origin): self
     {
@@ -23,6 +26,7 @@ class StructuredLogger
 
         $wrapper = OriginWrapper::fromConfig(Config::string('monitor.origin_path_wrapper', 'square'));
         $instance->origin = $wrapper->wrap($instance->rawOrigin);
+        $instance->redactor = new LogRedactor;
 
         return $instance;
     }
@@ -31,6 +35,7 @@ class StructuredLogger
     {
         $this->rawOrigin = $this->resolveOrigin($origin);
         $this->origin = $this->rawOrigin;
+        $this->redactor = new LogRedactor;
     }
 
     public function getOrigin(): string
@@ -76,12 +81,15 @@ class StructuredLogger
      */
     protected function enrich(string $level, string $message, array $context = []): array
     {
+        // Apply redaction to the context
+        $redactedContext = $this->redactor->redact($context);
+
         return [
             'level' => $level,
             'event' => "{$this->rawOrigin}:{$level}",
             'message' => "{$this->origin} {$message}",
             'trace_id' => Monitor::trace()->hasStarted() ? Monitor::trace()->id() : null,
-            'context' => $context,
+            'context' => $redactedContext,
             'timestamp' => now()->toISOString(),
             'duration_ms' => Monitor::time()->elapsed(),
             'memory_mb' => round(memory_get_usage(true) / 1048576, 2),

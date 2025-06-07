@@ -3,7 +3,7 @@
     "description": "Laravel observability toolkit with critical control points, structured logging, performance timing, and trace context.",
     "type": "library",
     "license": "MIT",
-    "keywords": ["laravel", "logging", "telemetry", "observability", "trace", "ccp", "monitor"],
+    "keywords": ["laravel", "logging", "telemetry", "observability", "trace", "controlled", "monitor"],
     "autoload": {
         "psr-4": {
             "Kirschbaum\\Monitor\\": "src/",

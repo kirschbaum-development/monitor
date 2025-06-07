@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor;
 
 use Illuminate\Support\ServiceProvider;
+use Kirschbaum\Monitor\Support\ControlledContext;
 
 class MonitorServiceProvider extends ServiceProvider
 {
@@ -15,6 +16,8 @@ class MonitorServiceProvider extends ServiceProvider
         $this->app->singleton(Monitor::class, fn () => new Monitor);
         $this->app->singleton(Trace::class, fn () => new Trace);
         $this->app->singleton(LogTimer::class, fn () => new LogTimer);
+        $this->app->singleton(CircuitBreaker::class, fn () => new CircuitBreaker);
+        $this->app->singleton(ControlledContext::class, fn () => new ControlledContext);
 
         $this->mergeLoggingChannelsFrom(__DIR__.'/../config/logging-monitor.php', 'logging');
     }

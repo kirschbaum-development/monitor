@@ -4,8 +4,6 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
-use Closure;
-
 class Monitor
 {
     public function trace(): Trace
@@ -23,15 +21,25 @@ class Monitor
         return app(LogTimer::class);
     }
 
-    /**
-     * @param  array<string, mixed>  $context
-     */
-    public function ccp(string $name, ?Closure $callback = null, array $context = [], ?Closure $onFail = null): mixed
+    public function breaker(): CircuitBreaker
     {
-        if (! $callback) {
-            throw new \InvalidArgumentException('Callback is required for CCP blocks.');
-        }
+        return app(CircuitBreaker::class);
+    }
 
-        return Ccp::run($name, $callback, $context, $onFail);
+    public function from(string|object $origin): MonitorWithOrigin
+    {
+        return new MonitorWithOrigin($origin);
+    }
+
+    /**
+     * Create a controlled execution block.
+     *
+     * Supports fluent interface patterns:
+     * - Monitor::controlled()->from('origin')->for('name')->run($callback)
+     * - Monitor::controlled('name')->from('origin')->run($callback)
+     */
+    public function controlled(?string $name = null): Controlled
+    {
+        return $name !== null ? Controlled::for($name) : new Controlled;
     }
 }
