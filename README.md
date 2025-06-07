@@ -108,7 +108,7 @@ class StripePaymentService
 
 ### Controlled Execution Blocks
 
-**What it does:** Monitors critical operations with automatic start/end logging, exception handling, circuit breakers, and failure callbacks.
+**What it does:** Monitors critical operations with automatic start/end logging, exception handling, DB transactions, circuit breakers, and failure callbacks.
 
 ```php
 use Kirschbaum\Monitor\Facades\Monitor;
@@ -118,14 +118,9 @@ class PaymentService
     public function processPayment($amount, $userId)
     {
         return Monitor::controlled('payment_processing')
-            ->context(['amount' => $amount, 'user_id' => $userId])
-            ->failing(function ($exception, $context) {
-                // Alert ops team immediately
-                NotificationService::alertOps('Payment failure', $context);
-                
-                // Open circuit breaker
-                CircuitBreaker::open('payment_service', '5 minutes');
-            })
+            ->with(['amount' => $amount, 'user_id' => $userId]) // Additional log context
+            ->transactioned(3)
+            ->escalated(fn (ControlledFailureMeta $meta) => Slack::notify($meta->toArray()))
             ->run(function () use ($amount) {
                 return $this->chargeCard($amount);
             });
@@ -145,9 +140,9 @@ class PaymentService
 ```
 
 **Advanced Features:**
-- **Circuit Breakers:** `->breaker('service_name', threshold, decaySeconds)`
-- **Database Transactions:** `->transactioned(retries, onlyExceptions, excludeExceptions)`
-- **Failure Escalation:** `->escalated($callback)` for critical business processes
+- **Circuit Breakers:** `->breaker('service_name', threshold, decaySeconds)` - Automatically opens/closes breaker based on failures
+- **Database Transactions:** `->transactioned(retries, onlyExceptions, excludeExceptions)`. This allows to only retry transaction on specific exceptions, or otherwise ignore specific exception.
+- **Failure Escalation Path:** `->escalated($callback)` for critical business processes
 
 ### Distributed Tracing
 
@@ -250,38 +245,89 @@ class DataProcessor
 
 ### Log Redaction
 
-**What it does:** Automatically scrubs sensitive data from log context to ensure compliance and security.
+**What it does:** Automatically scrubs sensitive data from log context using a priority-based system to ensure compliance and security while preserving important data.
+
+**Priority System:**
+1. **Safe Keys** (highest) - Never redacted, always shown
+2. **Blocked Keys** - Always redacted, regardless of content  
+3. **Regex Patterns** - Redacts values matching specific patterns
+4. **Shannon Entropy** (lowest) - Detects high-entropy secrets like API keys
 
 **Configuration:** Redaction options in `config/monitor.php`:
 
 ```php
 'log_redactor' => [
     'enabled' => true,
-    'redact_keys' => [
-        'password', 'token', 'api_key', 'authorization', 
-        'ssn', 'credit_card', 'private_key'
+    
+    // Priority 1: Keys that should NEVER be redacted
+    'safe_keys' => [
+        'id', 'uuid', 'created_at', 'updated_at', 'timestamp',
+        'user_id', 'order_id', 'status', 'type', 'name'
     ],
+    
+    // Priority 2: Keys that should ALWAYS be redacted
+    'blocked_keys' => [
+        'password', 'token', 'api_key', 'authorization', 'secret',
+        'ssn', 'ein', 'credit_card', 'private_key', 'email'
+    ],
+    
+    // Priority 3: Regex patterns for value-based detection
     'patterns' => [
         'email' => '/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/',
         'credit_card' => '/\b(?:\d[ -]*?){13,16}\b/',
-        'bearer_token' => '/Bearer\s+[A-Za-z0-9\-._~+\/]+=*/',
+        'ssn' => '/\b\d{3}-?\d{2}-?\d{4}\b/',
+        'phone' => '/\b\d{3}[.-]?\d{3}[.-]?\d{4}\b/',
     ],
+    
+    // Priority 4: Shannon entropy detection for unknown secrets
+    'shannon_entropy' => [
+        'enabled' => true,
+        'threshold' => 4.5,    // Entropy threshold (0-8 scale)
+        'min_length' => 20,    // Minimum string length to analyze
+    ],
+    
     'replacement' => '[REDACTED]',
+    'mark_redacted' => true,         // Add "_redacted": true marker
     'max_value_length' => 10000,     // Truncate large values
     'redact_large_objects' => true,  // Limit large arrays/objects
     'max_object_size' => 50,
 ],
 ```
 
-**What happens:**
+**How it works:**
 ```php
 Monitor::from($this)->info('User data', [
-    'email' => 'user@example.com',    // → '[REDACTED]'
-    'password' => 'secret123',        // → '[REDACTED]'  
-    'token' => 'Bearer abc123',       // → '[REDACTED]'
-    'name' => 'John Doe'              // → 'John Doe' (unchanged)
+    // Safe keys - never redacted (Priority 1)
+    'id' => 123,                      // → 123 (safe key)
+    'user_id' => 456,                 // → 456 (safe key)
+    'created_at' => '2024-01-15',     // → '2024-01-15' (safe key)
+    
+    // Blocked keys - always redacted (Priority 2)  
+    'password' => 'secret123',        // → '[REDACTED]' (blocked key)
+    'email' => 'user@example.com',    // → '[REDACTED]' (blocked key wins over pattern)
+    
+    // Pattern matching - value-based (Priority 3)
+    'contact' => 'user@example.com',  // → '[REDACTED]' (email pattern)
+    'card' => '4111-1111-1111-1111',  // → '[REDACTED]' (credit card pattern)
+    
+    // Shannon entropy - high entropy secrets (Priority 4)
+    'api_token' => 'sk-1234567890abcdef...', // → '[REDACTED]' (high entropy)
+    'jwt' => 'eyJ0eXAiOiJKV1QiLCJhbGc...', // → '[REDACTED]' (high entropy)
+    
+    // Normal data - unchanged
+    'name' => 'John Doe',             // → 'John Doe' (low entropy, not blocked)
+    'description' => 'A simple task', // → 'A simple task' (normal text)
 ]);
+
+// Result includes redaction marker when data was modified
+// { ..., "_redacted": true }
 ```
+
+**Shannon Entropy Detection:**
+- Automatically detects API keys, JWT tokens, and other high-entropy secrets
+- Ignores common patterns like URLs, UUIDs, dates, and file paths
+- Configurable threshold and minimum length requirements
+- Prevents false positives on normal text and structured data
 
 ## Configuration
 
@@ -304,6 +350,15 @@ MONITOR_TRACE_HEADER=X-Trace-Id
 # Log redaction
 MONITOR_LOG_REDACTOR_ENABLED=true
 MONITOR_LOG_REDACTOR_REPLACEMENT='[REDACTED]'
+MONITOR_LOG_REDACTOR_MARK_REDACTED=true
+MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH=10000
+MONITOR_LOG_REDACTOR_LARGE_OBJECTS=true
+MONITOR_LOG_REDACTOR_MAX_OBJECT_SIZE=50
+
+# Shannon entropy detection
+MONITOR_LOG_REDACTOR_SHANNON_ENABLED=true
+MONITOR_LOG_REDACTOR_SHANNON_THRESHOLD=4.5
+MONITOR_LOG_REDACTOR_SHANNON_MIN_LENGTH=20
 ```
 
 **Logging Channel:** Configure a dedicated Monitor logging channel:

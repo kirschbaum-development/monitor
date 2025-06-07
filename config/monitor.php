@@ -279,23 +279,81 @@ return [
 
         /*
         |----------------------------------------------------------------------
-        | Redact Keys
+        | Safe Keys
         |----------------------------------------------------------------------
         |
-        | Keys that always get redacted (case-insensitive match). If any
-        | context key matches these names, the entire value will be replaced
-        | with the configured replacement string.
+        | Keys that should NEVER be redacted (case-insensitive match).
+        | These keys will always show their values unredacted, regardless
+        | of other redaction rules. Useful for identifiers and timestamps.
         |
         */
 
-        'redact_keys' => [
+        'safe_keys' => [
+            // Core identifiers (high frequency)
+            'id',
+            'uuid',
+            'user_id',
+            'order_id',
+            'session_id',
+            'request_id',
+
+            // Timestamps & metadata (high frequency)
+            'created_at',
+            'updated_at',
+            'timestamp',
+
+            // Monitor framework keys (highest frequency)
+            'level',
+            'event',
+            'message',
+            'trace_id',
+            'channel',
+            'duration_ms',
+            'memory_mb',
+
+            // Controlled block keys (frequent in enterprise usage)
+            'controlled_block',
+            'controlled_block_id',
+            'attempt',
+            'status',
+            'breaker_tripped',
+            'escalated',
+
+            // Common business identifiers
+            'name',
+            'title',
+            'type',
+            'method',
+            'path',
+            'url',
+            'ip',
+            'user_agent',
+            'operation',
+            'action',
+            'source',
+            'target',
+            'version',
+            'platform',
+            'environment',
+        ],
+
+        /*
+        |----------------------------------------------------------------------
+        | Blocked Keys
+        |----------------------------------------------------------------------
+        |
+        | Keys that should ALWAYS be redacted (case-insensitive match).
+        | These keys will always be redacted, even if they would normally
+        | be considered safe. Takes priority over safe_keys.
+        |
+        */
+
+        'blocked_keys' => [
             'password',
-            'token',
             'secret',
+            'token',
             'api_key',
             'authorization',
-            'ssn',
-            'credit_card',
             'auth_token',
             'bearer_token',
             'access_token',
@@ -303,6 +361,15 @@ return [
             'session_id',
             'private_key',
             'client_secret',
+            'email',
+            'ssn',
+            'ein',
+            'social_security_number',
+            'tax_id',
+            'credit_card',
+            'card_number',
+            'cvv',
+            'pin',
         ],
 
         /*
@@ -317,15 +384,16 @@ return [
         */
 
         'patterns' => [
+            // Ordered by frequency and performance (most common/fastest first)
             'email' => '/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/',
+            'phone_simple' => '/\b\d{3}[.-]?\d{3}[.-]?\d{4}\b/',
+            'ssn' => '/\b\d{3}-?\d{2}-?\d{4}\b/',
             'credit_card' => '/\b(?:\d[ -]*?){13,16}\b/',
-            'ssn' => '/\b\d{3}-\d{2}-\d{4}\b/',
-            'phone' => '/\+?\d[\d -]{8,14}\d/',
-            'bearer_token' => '/Bearer\s+[A-Za-z0-9\-._~+\/]+=*/',
-            'api_key' => '/(api|apikey|api_key)\s*[:=]\s*[A-Za-z0-9\-_]{20,}/i',
-            'jwt_token' => '/eyJ[A-Za-z0-9\-_]+\.eyJ[A-Za-z0-9\-_]+\.[A-Za-z0-9\-_.+\/=]*/',
-            'ipv4' => '/\b(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\b/',
             'url_with_auth' => '/https?:\/\/[^:\/\s]+:[^@\/\s]+@[^\s]+/',
+
+            // Note: IPv4 removed (common pattern bypass handles this)
+            // Note: Complex phone patterns removed (Shannon entropy will catch international)
+            // Note: API key patterns removed (Shannon entropy is better for these)
         ],
 
         /*
@@ -360,10 +428,13 @@ return [
         | Maximum length for string values before they are considered "large
         | blobs" and get redacted. Set to null to disable length-based redaction.
         | This helps prevent large payloads from cluttering logs.
+        | 20000: Performance optimized (allows larger strings, less truncation overhead)
+        | 10000: Balanced approach
+        | 5000: More aggressive truncation (better for storage-constrained environments)
         |
         */
 
-        'max_value_length' => env('MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH', 10000),
+        'max_value_length' => env('MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH', 20000),
 
         /*
         |----------------------------------------------------------------------
@@ -385,9 +456,47 @@ return [
         |
         | Maximum number of items in an array or object before it gets redacted.
         | Only applies when redact_large_objects is enabled.
+        | 100: Performance optimized (allows larger objects, less redaction overhead)
+        | 50: Balanced approach
+        | 25: More aggressive redaction (better for memory-constrained environments)
         |
         */
 
-        'max_object_size' => env('MONITOR_LOG_REDACTOR_MAX_OBJECT_SIZE', 50),
+        'max_object_size' => env('MONITOR_LOG_REDACTOR_MAX_OBJECT_SIZE', 100),
+
+        /*
+        |----------------------------------------------------------------------
+        | Shannon Entropy Configuration
+        |----------------------------------------------------------------------
+        |
+        | Shannon entropy analysis for detecting high-entropy strings like
+        | API keys, tokens, and secrets that might not match specific patterns.
+        | This is used as a last resort after safe_keys, blocked_keys, and
+        | regex patterns have been checked.
+        |
+        */
+
+        'shannon_entropy' => [
+            /*
+            | Enable Shannon entropy analysis for detecting potential secrets
+            */
+            'enabled' => env('MONITOR_LOG_REDACTOR_SHANNON_ENABLED', true),
+
+            /*
+            | Entropy threshold (0.0 - ~8.0). Higher values = more selective.
+            | 4.8: Balanced performance/security (recommended for production)
+            | 4.5: More sensitive detection (better security, more CPU)
+            | 5.0: Higher performance (fewer false positives, less CPU)
+            */
+            'threshold' => env('MONITOR_LOG_REDACTOR_SHANNON_THRESHOLD', 4.8),
+
+            /*
+            | Minimum string length to analyze. Shorter strings are ignored.
+            | 25: Performance optimized (recommended for high-volume logging)
+            | 20: More sensitive detection
+            | 30: Higher performance, may miss some short tokens
+            */
+            'min_length' => env('MONITOR_LOG_REDACTOR_SHANNON_MIN_LENGTH', 25),
+        ],
     ],
 ];

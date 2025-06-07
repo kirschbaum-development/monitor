@@ -1,5 +1,5 @@
 {
-    "name": "kirschbaum-development/monitor",
+    "name": "kirschbaum/monitor",
     "description": "Laravel observability toolkit with critical control points, structured logging, performance timing, and trace context.",
     "type": "library",
     "license": "MIT",
