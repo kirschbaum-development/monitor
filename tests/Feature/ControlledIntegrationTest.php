@@ -44,7 +44,7 @@ describe('Monitor Facade Integration with Controlled', function () {
         app()->instance(CircuitBreaker::class, new CircuitBreaker);
 
         $result = Monitor::controlled('breaker-integration')
-            ->breaker('test-integration-breaker')
+            ->withCircuitBreaker('test-integration-breaker')
             ->run(fn () => 'breaker-success');
 
         expect($result)->toBe('breaker-success');
@@ -59,7 +59,7 @@ describe('Monitor Facade Integration with Controlled', function () {
             });
 
         $result = Monitor::controlled('transaction-integration')
-            ->transactioned()
+            ->withDatabaseTransaction()
             ->run(fn () => 'transaction-success');
 
         expect($result)->toBe('transaction-success');
@@ -67,8 +67,8 @@ describe('Monitor Facade Integration with Controlled', function () {
 
     it('chains multiple configuration methods through facade', function () {
         $result = Monitor::controlled('full-chain-test')
-            ->context(['feature' => 'integration'])
-            ->with(['test' => 'comprehensive'])
+            ->overrideContext(['feature' => 'integration'])
+            ->addContext(['test' => 'comprehensive'])
 
             ->from('IntegrationTest')
             ->run(fn () => 'full-chain-success');
@@ -114,7 +114,7 @@ describe('Monitor Facade Integration with Controlled', function () {
         $customTraceId = 'custom-integration-trace-123';
 
         $result = Monitor::controlled('trace-override-integration')
-            ->traceId($customTraceId)
+            ->overrideTraceId($customTraceId)
             ->run(fn () => 'trace-override-success');
 
         expect($result)->toBe('trace-override-success');
@@ -156,7 +156,7 @@ describe('Monitor with Origin Integration', function () {
         $result = Monitor::from('StringOrigin')
             ->controlled()
             ->for('string-origin-test')
-            ->context(['test' => 'origin-preservation'])
+            ->overrideContext(['test' => 'origin-preservation'])
             ->run(fn () => 'origin-chain-success');
 
         expect($result)->toBe('origin-chain-success');
@@ -168,7 +168,7 @@ describe('Real-world Integration Scenarios', function () {
         $paymentSuccessful = false;
 
         $result = Monitor::controlled('payment_processing')
-            ->context([
+            ->overrideContext([
                 'user_id' => 123,
                 'amount' => 99.99,
                 'currency' => 'USD',
@@ -211,10 +211,10 @@ describe('Real-world Integration Scenarios', function () {
             });
 
         $result = Monitor::controlled('database_critical_write')
-            ->context(['operation' => 'user_signup', 'table' => 'users'])
+            ->overrideContext(['operation' => 'user_signup', 'table' => 'users'])
 
-            ->breaker('database_write', 3, 60)
-            ->transactioned(1) // 1 retry
+            ->withCircuitBreaker('database_write', 3, 60)
+            ->withDatabaseTransaction(1) // 1 retry
             ->failing(function ($exception, $meta) {
                 // Log database issues for monitoring
             })
@@ -229,13 +229,13 @@ describe('Real-world Integration Scenarios', function () {
         $apiCallCount = 0;
 
         $result = Monitor::controlled('external_api_integration')
-            ->context([
+            ->overrideContext([
                 'service' => 'stripe',
                 'endpoint' => '/charges',
                 'method' => 'POST',
             ])
 
-            ->traceId('api-call-trace-789')
+            ->overrideTraceId('api-call-trace-789')
             ->failing(function ($exception, $meta) use (&$apiCallCount) {
                 // Increment failure metrics
                 $apiCallCount++;

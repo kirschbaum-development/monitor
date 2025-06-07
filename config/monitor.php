@@ -311,7 +311,7 @@ return [
             'duration_ms',
             'memory_mb',
 
-            // Controlled block keys (frequent in enterprise usage)
+            // Controlled block keys
             'controlled_block',
             'controlled_block_id',
             'attempt',
@@ -319,8 +319,6 @@ return [
             'breaker_tripped',
             'escalated',
 
-            // Common business identifiers
-            'name',
             'title',
             'type',
             'method',
@@ -361,6 +359,9 @@ return [
             'session_id',
             'private_key',
             'client_secret',
+            'full_name',
+            'first_name',
+            'last_name',
             'email',
             'ssn',
             'ein',
@@ -390,10 +391,6 @@ return [
             'ssn' => '/\b\d{3}-?\d{2}-?\d{4}\b/',
             'credit_card' => '/\b(?:\d[ -]*?){13,16}\b/',
             'url_with_auth' => '/https?:\/\/[^:\/\s]+:[^@\/\s]+@[^\s]+/',
-
-            // Note: IPv4 removed (common pattern bypass handles this)
-            // Note: Complex phone patterns removed (Shannon entropy will catch international)
-            // Note: API key patterns removed (Shannon entropy is better for these)
         ],
 
         /*

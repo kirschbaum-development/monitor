@@ -59,7 +59,7 @@ final class Controlled
      *
      * @param  array<string, mixed>  $context
      */
-    public function context(array $context): self
+    public function overrideContext(array $context): self
     {
         $this->context = $context;
 
@@ -71,7 +71,7 @@ final class Controlled
      *
      * @param  array<string, mixed>  $context
      */
-    public function with(array $context): self
+    public function addContext(array $context): self
     {
         $this->context = array_merge($this->context, $context);
 
@@ -92,7 +92,7 @@ final class Controlled
         return $this;
     }
 
-    public function breaker(string $name, int $threshold = 5, int $decaySeconds = 300): self
+    public function withCircuitBreaker(string $name, int $threshold = 5, int $decaySeconds = 300): self
     {
         $this->breakerName = $name;
         $this->breakerThreshold = $threshold;
@@ -105,7 +105,7 @@ final class Controlled
      * @param  array<class-string<\Throwable>>  $only
      * @param  array<class-string<\Throwable>>  $exclude
      */
-    public function transactioned(int $retries = 0, array $only = [], array $exclude = []): self
+    public function withDatabaseTransaction(int $retries = 0, array $only = [], array $exclude = []): self
     {
         $this->withTransaction = true;
         $this->transactionRetries = $retries;
@@ -115,7 +115,7 @@ final class Controlled
         return $this;
     }
 
-    public function traceId(string $traceId): self
+    public function overrideTraceId(string $traceId): self
     {
         $this->traceIdOverride = $traceId;
 

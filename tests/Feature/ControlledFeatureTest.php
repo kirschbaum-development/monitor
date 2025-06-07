@@ -56,7 +56,7 @@ describe('Controlled Framework Integration', function () {
             $context = ['user_id' => 123, 'action' => 'test'];
 
             $result = Controlled::for('context-test')
-                ->context($context)
+                ->overrideContext($context)
                 ->run(fn () => 'context-success');
 
             expect($result)->toBe('context-success');
@@ -64,8 +64,8 @@ describe('Controlled Framework Integration', function () {
 
         it('merges context and executes', function () {
             $result = Controlled::for('merge-context-test')
-                ->context(['initial' => 'value'])
-                ->with(['additional' => 'data'])
+                ->overrideContext(['initial' => 'value'])
+                ->addContext(['additional' => 'data'])
                 ->run(fn () => 'merge-success');
 
             expect($result)->toBe('merge-success');
@@ -134,7 +134,7 @@ describe('Controlled Framework Integration', function () {
 
         it('configures circuit breaker with defaults', function () {
             $result = Controlled::for('breaker-test')
-                ->breaker('test-breaker')
+                ->withCircuitBreaker('test-breaker')
                 ->run(fn () => 'success');
 
             expect($result)->toBe('success');
@@ -142,7 +142,7 @@ describe('Controlled Framework Integration', function () {
 
         it('configures circuit breaker with custom threshold and decay', function () {
             $result = Controlled::for('custom-breaker-test')
-                ->breaker('custom-breaker', 10, 600)
+                ->withCircuitBreaker('custom-breaker', 10, 600)
                 ->run(fn () => 'success');
 
             expect($result)->toBe('success');
@@ -155,7 +155,7 @@ describe('Controlled Framework Integration', function () {
             for ($i = 0; $i < 5; $i++) {
                 try {
                     Controlled::for("failure-{$i}")
-                        ->breaker($breakerName)
+                        ->withCircuitBreaker($breakerName)
                         ->run(function () {
                             throw new RuntimeException('Simulated failure');
                         });
@@ -167,7 +167,7 @@ describe('Controlled Framework Integration', function () {
             // Next call should be blocked by circuit breaker
             expect(function () use ($breakerName) {
                 Controlled::for('blocked-test')
-                    ->breaker($breakerName)
+                    ->withCircuitBreaker($breakerName)
                     ->run(fn () => 'should-not-execute');
             })->toThrow(RuntimeException::class, "Circuit breaker '{$breakerName}' is open");
         });
@@ -186,7 +186,7 @@ describe('Controlled Framework Integration', function () {
 
             // Now execution should succeed and keep breaker closed
             $result = Controlled::for('reset-success-test')
-                ->breaker($breakerName)
+                ->withCircuitBreaker($breakerName)
                 ->run(fn () => 'success');
 
             expect($result)->toBe('success')
@@ -204,7 +204,7 @@ describe('Controlled Framework Integration', function () {
                 });
 
             $result = Controlled::for('transaction-test')
-                ->transactioned()
+                ->withDatabaseTransaction()
                 ->run(fn () => 'transaction-success');
 
             expect($result)->toBe('transaction-success');
@@ -226,7 +226,7 @@ describe('Controlled Framework Integration', function () {
                 });
 
             $result = Controlled::for('retry-test')
-                ->transactioned(2) // 2 retries
+                ->withDatabaseTransaction(2) // 2 retries
                 ->run(fn () => 'retry-success');
 
             expect($result)->toBe('retry-success')
@@ -239,7 +239,7 @@ describe('Controlled Framework Integration', function () {
             $customTraceId = 'custom-trace-123';
 
             $result = Controlled::for('trace-override-test')
-                ->traceId($customTraceId)
+                ->overrideTraceId($customTraceId)
                 ->run(fn () => 'trace-success');
 
             expect($result)->toBe('trace-success');
@@ -289,9 +289,9 @@ describe('Controlled Framework Integration', function () {
     describe('Full Integration Chaining', function () {
         it('supports fluent interface chaining with execution', function () {
             $result = Controlled::for('chain-test')
-                ->context(['initial' => 'data'])
-                ->with(['additional' => 'context'])
-                ->traceId('custom-trace')
+                ->overrideContext(['initial' => 'data'])
+                ->addContext(['additional' => 'context'])
+                ->overrideTraceId('custom-trace')
                 ->from('ChainTest')
                 ->run(fn () => 'chain-success');
 

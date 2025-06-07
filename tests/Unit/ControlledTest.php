@@ -41,18 +41,18 @@ describe('Controlled Class Unit Tests', function () {
     });
 
     describe('Context Management', function () {
-        it('sets context with context() method', function () {
+        it('sets context with overrideContext() method', function () {
             $context = ['user_id' => 123, 'action' => 'test'];
 
-            $controlled = Controlled::for('context-test')->context($context);
+            $controlled = Controlled::for('context-test')->overrideContext($context);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
 
-        it('merges context with with() method', function () {
+        it('merges context with addContext() method', function () {
             $controlled = Controlled::for('merge-context-test')
-                ->context(['initial' => 'value'])
-                ->with(['additional' => 'data']);
+                ->overrideContext(['initial' => 'value'])
+                ->addContext(['additional' => 'data']);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
@@ -63,7 +63,7 @@ describe('Controlled Class Unit Tests', function () {
                 'operation' => ['type' => 'complex', 'metadata' => ['version' => '1.0']],
             ];
 
-            $controlled = Controlled::for('complex-context')->context($complexContext);
+            $controlled = Controlled::for('complex-context')->overrideContext($complexContext);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
@@ -72,7 +72,7 @@ describe('Controlled Class Unit Tests', function () {
     describe('Configuration Methods', function () {
 
         it('sets trace ID override', function () {
-            $controlled = Controlled::for('trace-test')->traceId('custom-trace-123');
+            $controlled = Controlled::for('trace-test')->overrideTraceId('custom-trace-123');
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
@@ -84,14 +84,14 @@ describe('Controlled Class Unit Tests', function () {
         });
 
         it('configures circuit breaker parameters', function () {
-            $controlled = Controlled::for('breaker-test')->breaker('test-breaker', 10, 600);
+            $controlled = Controlled::for('breaker-test')->withCircuitBreaker('test-breaker', 10, 600);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
 
         it('configures transaction parameters', function () {
             $controlled = Controlled::for('transaction-test')
-                ->transactioned(2, [RuntimeException::class], [InvalidArgumentException::class]);
+                ->withDatabaseTransaction(2, [RuntimeException::class], [InvalidArgumentException::class]);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
@@ -100,11 +100,11 @@ describe('Controlled Class Unit Tests', function () {
     describe('Method Chaining', function () {
         it('supports fluent interface chaining', function () {
             $controlled = Controlled::for('chain-test')
-                ->context(['initial' => 'data'])
-                ->with(['additional' => 'context'])
-                ->traceId('custom-trace')
-                ->breaker('test-breaker', 3, 120)
-                ->transactioned(1)
+                ->overrideContext(['initial' => 'data'])
+                ->addContext(['additional' => 'context'])
+                ->overrideTraceId('custom-trace')
+                ->withCircuitBreaker('test-breaker', 3, 120)
+                ->withDatabaseTransaction(1)
                 ->from('ChainTest');
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
@@ -132,15 +132,15 @@ describe('Controlled Class Unit Tests', function () {
     describe('Edge Cases', function () {
         it('handles empty context arrays', function () {
             $controlled = Controlled::for('empty-context-test')
-                ->context([])
-                ->with([]);
+                ->overrideContext([])
+                ->addContext([]);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
 
         it('handles empty values gracefully', function () {
             $controlled = Controlled::for('empty-test')
-                ->context([]);
+                ->overrideContext([]);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
@@ -149,7 +149,7 @@ describe('Controlled Class Unit Tests', function () {
     describe('Retry Logic Configuration', function () {
         it('configures retry parameters correctly', function () {
             $controlled = Controlled::for('retry-config-test')
-                ->transactioned(2, [RuntimeException::class], [InvalidArgumentException::class]);
+                ->withDatabaseTransaction(2, [RuntimeException::class], [InvalidArgumentException::class]);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });

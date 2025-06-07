@@ -144,7 +144,7 @@ it('creates controlled execution block with context', function () {
     $context = ['user_id' => 123, 'action' => 'test'];
 
     $result = $monitor->controlled('test_with_context')
-        ->context($context)
+        ->overrideContext($context)
         ->run(function () {
             return 'success';
         });
@@ -172,7 +172,7 @@ it('handles empty context array correctly', function () {
     $monitor = new Monitor;
 
     $result = $monitor->controlled('empty_context_test')
-        ->context([])
+        ->overrideContext([])
         ->run(function () {
             return 'context_success';
         });
@@ -190,7 +190,7 @@ it('handles complex context data correctly', function () {
     ];
 
     $result = $monitor->controlled('complex_context_test')
-        ->context($complexContext)
+        ->overrideContext($complexContext)
         ->run(function () {
             return 'complex_success';
         });

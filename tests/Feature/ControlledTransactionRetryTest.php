@@ -37,7 +37,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
 
             expect(function () {
                 Controlled::for('exhausted-retries-test')
-                    ->transactioned(3) // 3 retries
+                    ->withDatabaseTransaction(3) // 3 retries
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -60,7 +60,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                 });
 
             $result = Controlled::for('retry-logic-test')
-                ->transactioned(2) // 2 retries
+                ->withDatabaseTransaction(2) // 2 retries
                 ->run(function () {
                     return 'retry-success';
                 });
@@ -78,7 +78,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
             // Should NOT retry InvalidArgumentException when only RuntimeException is allowed
             expect(function () {
                 Controlled::for('only-exceptions-test')
-                    ->transactioned(2, [RuntimeException::class], [])
+                    ->withDatabaseTransaction(2, [RuntimeException::class], [])
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -94,7 +94,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
             // Should NOT retry InvalidArgumentException when it's excluded
             expect(function () {
                 Controlled::for('exclude-exceptions-test')
-                    ->transactioned(2, [], [InvalidArgumentException::class])
+                    ->withDatabaseTransaction(2, [], [InvalidArgumentException::class])
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -116,7 +116,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                 });
 
             $result = Controlled::for('allowed-exception-retry-test')
-                ->transactioned(1, [RuntimeException::class], [])
+                ->withDatabaseTransaction(1, [RuntimeException::class], [])
                 ->run(function () {
                     return 'retry-success';
                 });
@@ -133,7 +133,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
 
             expect(function () {
                 Controlled::for('complex-retry-test')
-                    ->transactioned(2, [RuntimeException::class, InvalidArgumentException::class], [])
+                    ->withDatabaseTransaction(2, [RuntimeException::class, InvalidArgumentException::class], [])
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -189,7 +189,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
 
             expect(function () {
                 Controlled::for('not-in-only-list-test')
-                    ->transactioned(2, [RuntimeException::class, InvalidArgumentException::class], [])
+                    ->withDatabaseTransaction(2, [RuntimeException::class, InvalidArgumentException::class], [])
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -216,7 +216,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                 });
 
             $result = Controlled::for('break-logic-test')
-                ->transactioned(1, [RuntimeException::class, InvalidArgumentException::class], [])
+                ->withDatabaseTransaction(1, [RuntimeException::class, InvalidArgumentException::class], [])
                 ->run(function () {
                     return 'break-logic-success';
                 });
@@ -237,7 +237,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
 
             expect(function () {
                 Controlled::for('excluded-exception-test')
-                    ->transactioned(2, [], [InvalidArgumentException::class])
+                    ->withDatabaseTransaction(2, [], [InvalidArgumentException::class])
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -264,7 +264,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                 });
 
             $result = Controlled::for('inheritance-test')
-                ->transactioned(1, [RuntimeException::class], [])
+                ->withDatabaseTransaction(1, [RuntimeException::class], [])
                 ->run(function () {
                     return 'inheritance-success';
                 });
@@ -287,7 +287,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
 
             expect(function () {
                 Controlled::for('retry-exhaustion-test')
-                    ->transactioned(2) // 2 retries
+                    ->withDatabaseTransaction(2) // 2 retries
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -315,7 +315,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
             // Should retry RuntimeException but not InvalidArgumentException
             expect(function () {
                 Controlled::for('mixed-exception-test')
-                    ->transactioned(2, [RuntimeException::class], [])
+                    ->withDatabaseTransaction(2, [RuntimeException::class], [])
                     ->run(function () {
                         return 'should-not-reach';
                     });
@@ -343,7 +343,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
             Log::shouldReceive('warning')->byDefault();
 
             $result = Controlled::for('force-retry-warning-test')
-                ->transactioned(2) // 2 retries = 3 total attempts
+                ->withDatabaseTransaction(2) // 2 retries = 3 total attempts
                 ->run(function () {
                     return 'final-success';
                 });
@@ -375,7 +375,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
 
             expect(function () {
                 Controlled::for('last-exception-test')
-                    ->transactioned(2) // 2 retries = 3 total attempts
+                    ->withDatabaseTransaction(2) // 2 retries = 3 total attempts
                     ->run(function () {
                         return 'should-not-reach';
                     });
