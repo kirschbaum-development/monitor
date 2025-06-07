@@ -69,7 +69,7 @@ describe('Monitor Facade Integration with Controlled', function () {
         $result = Monitor::controlled('full-chain-test')
             ->context(['feature' => 'integration'])
             ->with(['test' => 'comprehensive'])
-    
+
             ->from('IntegrationTest')
             ->run(fn () => 'full-chain-success');
 
@@ -173,7 +173,7 @@ describe('Real-world Integration Scenarios', function () {
                 'amount' => 99.99,
                 'currency' => 'USD',
             ])
-    
+
             ->failing(function ($exception, $meta) {
                 // Log to financial audit system
                 // In real implementation would call external service
@@ -212,7 +212,7 @@ describe('Real-world Integration Scenarios', function () {
 
         $result = Monitor::controlled('database_critical_write')
             ->context(['operation' => 'user_signup', 'table' => 'users'])
-    
+
             ->breaker('database_write', 3, 60)
             ->transactioned(1) // 1 retry
             ->failing(function ($exception, $meta) {
@@ -234,7 +234,7 @@ describe('Real-world Integration Scenarios', function () {
                 'endpoint' => '/charges',
                 'method' => 'POST',
             ])
-    
+
             ->traceId('api-call-trace-789')
             ->failing(function ($exception, $meta) use (&$apiCallCount) {
                 // Increment failure metrics

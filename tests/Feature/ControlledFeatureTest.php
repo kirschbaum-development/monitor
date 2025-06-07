@@ -286,8 +286,6 @@ describe('Controlled Framework Integration', function () {
         });
     });
 
-
-
     describe('Full Integration Chaining', function () {
         it('supports fluent interface chaining with execution', function () {
             $result = Controlled::for('chain-test')

@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
-use InvalidArgumentException;
 use Kirschbaum\Monitor\Controlled;
 use RuntimeException;
 
@@ -22,7 +21,7 @@ describe('Controlled Configuration Tests', function () {
     describe('Exception Trace Configuration', function () {
         it('returns null when exception trace is disabled', function () {
             Config::set('monitor.exception_trace.enabled', false);
-            
+
             $controlled = Controlled::for('trace-disabled-test')
                 ->failing(function ($exception, $meta) {
                     // Check that exception details are null when tracing is disabled
@@ -38,7 +37,7 @@ describe('Controlled Configuration Tests', function () {
             Config::set('monitor.exception_trace.enabled', true);
             Config::set('app.debug', true);
             Config::set('monitor.exception_trace.full_on_debug', true);
-            
+
             $exceptionData = null;
             $controlled = Controlled::for('trace-enabled-test')
                 ->failing(function ($exception, $meta) use (&$exceptionData) {
@@ -48,7 +47,7 @@ describe('Controlled Configuration Tests', function () {
             expect(fn () => $controlled->run(function () {
                 throw new RuntimeException('Test exception with trace');
             }))->toThrow(RuntimeException::class);
-            
+
             expect($exceptionData)->not->toBeNull()
                 ->and($exceptionData['class'])->toBe(RuntimeException::class)
                 ->and($exceptionData['message'])->toBe('Test exception with trace');
@@ -58,7 +57,7 @@ describe('Controlled Configuration Tests', function () {
             Config::set('monitor.exception_trace.enabled', true);
             Config::set('app.debug', false);
             Config::set('monitor.exception_trace.max_lines', 3);
-            
+
             $exceptionData = null;
             $controlled = Controlled::for('limited-trace-test')
                 ->failing(function ($exception, $meta) use (&$exceptionData) {
@@ -68,10 +67,10 @@ describe('Controlled Configuration Tests', function () {
             expect(fn () => $controlled->run(function () {
                 throw new RuntimeException('Test exception with limited trace');
             }))->toThrow(RuntimeException::class);
-            
+
             expect($exceptionData)->not->toBeNull()
                 ->and($exceptionData['class'])->toBe(RuntimeException::class);
-            
+
             // If trace exists, it should be limited
             if (isset($exceptionData['trace'])) {
                 expect(count($exceptionData['trace']))->toBeLessThanOrEqual(3);
@@ -82,17 +81,17 @@ describe('Controlled Configuration Tests', function () {
     describe('Circuit Breaker Without Name', function () {
         it('executes normally when no circuit breaker is configured', function () {
             $controlled = Controlled::for('no-breaker-execution-test');
-            
+
             $result = $controlled->run(function () {
                 return 'success without breaker';
             });
-            
+
             expect($result)->toBe('success without breaker');
         });
 
         it('handles failure without circuit breaker name set', function () {
             $controlled = Controlled::for('no-breaker-failure-test');
-            
+
             expect(fn () => $controlled->run(function () {
                 throw new RuntimeException('Failure without breaker');
             }))->toThrow(RuntimeException::class, 'Failure without breaker');
@@ -116,4 +115,4 @@ describe('Controlled Configuration Tests', function () {
             }))->toThrow(RuntimeException::class, 'Original exception');
         });
     });
-}); 
+});

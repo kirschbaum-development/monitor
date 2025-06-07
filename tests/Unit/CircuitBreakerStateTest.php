@@ -202,50 +202,50 @@ describe('CircuitBreakerState', function () {
     describe('extractRequiredIntegerValue Method', function () {
         it('returns integer value when present', function () {
             $data = ['key' => 42];
-            
+
             // Use reflection to test private method
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractRequiredIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'key', 0]);
-            
+
             expect($result)->toBe(42);
         });
 
         it('converts numeric string to integer', function () {
             $data = ['key' => '42'];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractRequiredIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'key', 0]);
-            
+
             expect($result)->toBe(42);
         });
 
         it('returns default when key is missing', function () {
             $data = [];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractRequiredIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'missing_key', 99]);
-            
+
             expect($result)->toBe(99);
         });
 
         it('returns default when value is not numeric', function () {
             $data = ['key' => 'not_numeric'];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractRequiredIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'key', 99]);
-            
+
             expect($result)->toBe(99);
         });
     });
@@ -253,61 +253,61 @@ describe('CircuitBreakerState', function () {
     describe('extractOptionalIntegerValue Method', function () {
         it('returns integer value when present', function () {
             $data = ['key' => 42];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractOptionalIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'key']);
-            
+
             expect($result)->toBe(42);
         });
 
         it('converts numeric string to integer', function () {
             $data = ['key' => '42'];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractOptionalIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'key']);
-            
+
             expect($result)->toBe(42);
         });
 
         it('returns null when key is missing', function () {
             $data = [];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractOptionalIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'missing_key']);
-            
+
             expect($result)->toBeNull();
         });
 
         it('returns null when value is explicitly null', function () {
             $data = ['key' => null];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractOptionalIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'key']);
-            
+
             expect($result)->toBeNull();
         });
 
         it('returns null when value is not numeric', function () {
             $data = ['key' => 'not_numeric'];
-            
+
             $reflection = new \ReflectionClass(CircuitBreakerState::class);
             $method = $reflection->getMethod('extractOptionalIntegerValue');
             $method->setAccessible(true);
-            
+
             $result = $method->invokeArgs(null, [$data, 'key']);
-            
+
             expect($result)->toBeNull();
         });
     });
@@ -319,9 +319,9 @@ describe('CircuitBreakerState', function () {
                 lastFailureAt: 1234567890,
                 decaySeconds: 300
             );
-            
+
             $array = $state->toArray();
-            
+
             expect($array)->toBe([
                 'failures' => 5,
                 'last_failure_at' => 1234567890,
@@ -335,9 +335,9 @@ describe('CircuitBreakerState', function () {
                 lastFailureAt: 1234567890,
                 decaySeconds: null
             );
-            
+
             $array = $state->toArray();
-            
+
             expect($array)->toBe([
                 'failures' => 3,
                 'last_failure_at' => 1234567890,
@@ -346,10 +346,10 @@ describe('CircuitBreakerState', function () {
         });
 
         it('converts default state to array', function () {
-            $state = new CircuitBreakerState();
-            
+            $state = new CircuitBreakerState;
+
             $array = $state->toArray();
-            
+
             expect($array)->toBe([
                 'failures' => 0,
                 'last_failure_at' => 0,
@@ -365,10 +365,10 @@ describe('CircuitBreakerState', function () {
                 lastFailureAt: 1234567890,
                 decaySeconds: 600
             );
-            
+
             $array = $originalState->toArray();
             $reconstructedState = CircuitBreakerState::fromArray($array);
-            
+
             expect($reconstructedState->failures)->toBe($originalState->failures)
                 ->and($reconstructedState->lastFailureAt)->toBe($originalState->lastFailureAt)
                 ->and($reconstructedState->decaySeconds)->toBe($originalState->decaySeconds);
@@ -380,10 +380,10 @@ describe('CircuitBreakerState', function () {
                 lastFailureAt: 1234567890,
                 decaySeconds: null
             );
-            
+
             $array = $originalState->toArray();
             $reconstructedState = CircuitBreakerState::fromArray($array);
-            
+
             expect($reconstructedState->failures)->toBe($originalState->failures)
                 ->and($reconstructedState->lastFailureAt)->toBe($originalState->lastFailureAt)
                 ->and($reconstructedState->decaySeconds)->toBe($originalState->decaySeconds);
@@ -393,56 +393,56 @@ describe('CircuitBreakerState', function () {
     describe('Additional Edge Cases', function () {
         it('handles recordFailure with null decaySeconds', function () {
             $state = new CircuitBreakerState(failures: 2, decaySeconds: 300);
-            
+
             $newState = $state->recordFailure(null);
-            
+
             expect($newState->failures)->toBe(3)
                 ->and($newState->decaySeconds)->toBe(300); // Should preserve original
         });
 
         it('handles recordFailure with new decaySeconds', function () {
             $state = new CircuitBreakerState(failures: 2, decaySeconds: 300);
-            
+
             $newState = $state->recordFailure(600);
-            
+
             expect($newState->failures)->toBe(3)
                 ->and($newState->decaySeconds)->toBe(600); // Should use new value
         });
 
         it('handles exceedsThreshold with zero threshold', function () {
             $state = new CircuitBreakerState(failures: 0);
-            
+
             expect($state->exceedsThreshold(0))->toBeFalse(); // max(1, 0) = 1, so 0 < 1
         });
 
         it('handles exceedsThreshold with negative threshold', function () {
             $state = new CircuitBreakerState(failures: 0);
-            
+
             expect($state->exceedsThreshold(-5))->toBeFalse(); // max(1, -5) = 1, so 0 < 1
         });
 
         it('handles exceedsThreshold with exact threshold match', function () {
             $state = new CircuitBreakerState(failures: 5);
-            
+
             expect($state->exceedsThreshold(5))->toBeTrue(); // 5 >= 5
         });
 
         it('handles exceedsThreshold with failures above threshold', function () {
             $state = new CircuitBreakerState(failures: 10);
-            
+
             expect($state->exceedsThreshold(5))->toBeTrue(); // 10 >= 5
         });
 
         it('handles isHealthy with non-zero failures', function () {
             $state = new CircuitBreakerState(failures: 1);
-            
+
             expect($state->isHealthy())->toBeFalse();
         });
 
         it('handles isHealthy with zero failures', function () {
             $state = new CircuitBreakerState(failures: 0);
-            
+
             expect($state->isHealthy())->toBeTrue();
         });
     });
-}); 
+});

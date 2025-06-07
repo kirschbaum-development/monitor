@@ -71,7 +71,6 @@ describe('Controlled Class Unit Tests', function () {
 
     describe('Configuration Methods', function () {
 
-
         it('sets trace ID override', function () {
             $controlled = Controlled::for('trace-test')->traceId('custom-trace-123');
 
@@ -159,10 +158,10 @@ describe('Controlled Class Unit Tests', function () {
     describe('Circuit Breaker Edge Cases', function () {
         it('handles circuit breaker methods when no breaker name is set', function () {
             $controlled = Controlled::for('no-breaker-test');
-            
+
             // These should not throw exceptions even without a breaker name
             expect($controlled)->toBeInstanceOf(Controlled::class);
-            
+
             // We can't directly test the protected methods, but we can ensure they handle null breaker names
             // This is tested indirectly through normal execution
         });
@@ -174,7 +173,6 @@ describe('Controlled Class Unit Tests', function () {
             expect(true)->toBeTrue();
         });
     });
-
 
 });
 

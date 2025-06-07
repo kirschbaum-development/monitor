@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Closure;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
@@ -12,8 +13,6 @@ use Kirschbaum\Monitor\CircuitBreaker;
 use Kirschbaum\Monitor\Controlled;
 use Mockery;
 use RuntimeException;
-use Throwable;
-use DomainException;
 
 beforeEach(function () {
     // Mock logging to prevent actual log output during tests
@@ -22,7 +21,7 @@ beforeEach(function () {
     Log::shouldReceive('warning')->byDefault();
     Log::shouldReceive('error')->byDefault();
     Log::shouldReceive('debug')->byDefault();
-    
+
     // Reset circuit breaker state
     app()->instance(CircuitBreaker::class, new CircuitBreaker);
 });
@@ -56,6 +55,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                     if ($attempts === 1) {
                         throw new RuntimeException('First attempt failed');
                     }
+
                     return $callback();
                 });
 
@@ -111,6 +111,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                     if ($attempts === 1) {
                         throw new RuntimeException('Allowed retryable exception');
                     }
+
                     return $callback();
                 });
 
@@ -176,7 +177,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
         it('returns false when exception not in retryOnlyExceptions list', function () {
             // Test the specific logic in lines 359-366 where we check retryOnlyExceptions
             // and lines 372-373 where we return false if no match found
-            
+
             $attempts = 0;
             DB::shouldReceive('transaction')
                 ->once()
@@ -210,6 +211,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                         // First exception is RuntimeException (which is in the allowed list)
                         throw new RuntimeException('Runtime error - should retry');
                     }
+
                     return $callback();
                 });
 
@@ -247,7 +249,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
         it('handles inheritance in exception checking', function () {
             // Test that exception inheritance works in the instanceof checks
             class CustomRuntimeException extends RuntimeException {}
-            
+
             $attempts = 0;
             DB::shouldReceive('transaction')
                 ->times(2)
@@ -257,6 +259,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                     if ($attempts === 1) {
                         throw new CustomRuntimeException('Custom runtime exception');
                     }
+
                     return $callback();
                 });
 
@@ -276,7 +279,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
             // Line 252 (the fallback RuntimeException) is theoretically unreachable in normal execution
             // because the while loop logic ensures we either return or throw before exiting naturally.
             // This test verifies the normal behavior when retries are exhausted.
-            
+
             DB::shouldReceive('transaction')
                 ->times(3) // Initial + 2 retries = 3 attempts total
                 ->with(Mockery::type(Closure::class))
@@ -298,7 +301,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                 new RuntimeException('Runtime error - retryable'),
                 new InvalidArgumentException('Invalid arg - not retryable for this config'),
             ];
-            
+
             $attempts = 0;
             DB::shouldReceive('transaction')
                 ->times(2)
@@ -332,6 +335,7 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
                     if ($attempts <= 2) {
                         throw new RuntimeException("Attempt {$attempts} failed");
                     }
+
                     return $callback();
                 });
 
@@ -380,4 +384,4 @@ describe('Controlled Transaction Retry and Circuit Breaker Edge Cases', function
             expect($attempts)->toBe(3);
         });
     });
-}); 
+});

@@ -209,10 +209,12 @@ it('handles objects where JSON decode does not return array', function () {
     $redactor = new LogRedactor;
 
     // Create an object that implements JsonSerializable to return a non-array value
-    $mockObject = new class implements \JsonSerializable {
+    $mockObject = new class implements \JsonSerializable
+    {
         public $name = 'test';
-        
-        public function jsonSerialize(): string {
+
+        public function jsonSerialize(): string
+        {
             return 'this_will_be_a_string_when_decoded'; // json_decode('"string"', true) returns a string, not array
         }
     };
@@ -256,15 +258,19 @@ it('handles objects that JSON encode to null or false scenarios', function () {
     $redactor = new LogRedactor;
 
     // Test an object with a resource (which can't be JSON encoded)
-    $objectWithResource = new class {
+    $objectWithResource = new class
+    {
         public $resource;
+
         public $name = 'test';
-        
-        public function __construct() {
+
+        public function __construct()
+        {
             $this->resource = fopen('php://memory', 'r');
         }
-        
-        public function __destruct() {
+
+        public function __destruct()
+        {
             if (is_resource($this->resource)) {
                 fclose($this->resource);
             }

@@ -38,8 +38,6 @@ final readonly class ControlledFailureMeta
         return $this->attempt > 1;
     }
 
-
-
     /**
      * @return array<string, mixed>
      */
