@@ -108,41 +108,158 @@ class StripePaymentService
 
 ### Controlled Execution Blocks
 
-**What it does:** Monitors critical operations with automatic start/end logging, exception handling, DB transactions, circuit breakers, and failure callbacks.
+**What it does:** Monitors critical operations with automatic start/end logging, exception-specific handling, DB transactions, circuit breakers, and true escalation for uncaught exceptions.
+
+#### **Factory & Execution**
 
 ```php
 use Kirschbaum\Monitor\Facades\Monitor;
 
+// Create and execute controlled block
+$result = Monitor::controlled('payment_processing')
+    ->run(function() {
+        return processPayment($data);
+    });
+```
+
+#### **Context Management**
+
+```php
+/*
+ * Adds additional context to the structured logger.
+ */
+->addContext([
+    'transaction_id' => 'txn_456',
+    'gateway' => 'stripe'
+]);
+
+/*
+ * Will completely replace structured logger context.
+ * ⚠️ Not recommended unless you have a good reason to do so.
+ */
+->overrideContext([
+    'user_id' => 123,
+    'operation' => 'payment',
+    'amount' => 99.99
+]);
+```
+
+#### **Exception Handling**
+
+**Exception-Specific Handlers (`catching`):**
+```php
+->catching([
+    DatabaseException::class => function($exception, $meta) {
+        $cachedData = ExampleModel::getCachedData();
+        return $cachedData; // Recovery value
+    },
+    NetworkException::class => function($exception, $meta) {
+        $this->exampleRetryLater($meta);
+        // No return = just handle, don't recover
+    },
+    PaymentException::class => function($exception, $meta) {
+        $this->exampleNotifyFinanceTeam($exception, $meta);
+        throw $exception; // Re-throw if needed
+    },
+    // Other exception types remain uncaught.
+])
+```
+
+**Uncaught Exception Handling (`onUncaughtException`):**
+```php
+->onUncaughtException(function($exception, $meta) {
+    // Example actions, the exception will remain uncaught
+    $this->alertOpsTeam($exception, $meta);
+    $this->sendToErrorTracking($exception);
+})
+```
+
+**Key Behavior:**
+- Only specified exception types in `catching()` are handled
+- Handlers can return recovery values to prevent re-throwing
+- `onUncaughtException()` **only** fires for exceptions not caught by `catching()` handlers
+- True separation between expected (caught) and unexpected (uncaught) failures
+
+#### **Circuit Breaker & Database Protection**
+
+```php
+->withCircuitBreaker('payment_gateway', 3, 60) // 3 failures, 60s timeout
+->withDatabaseTransaction(2, [DeadlockException::class], [ValidationException::class])
+```
+
+#### **Tracing & Logging**
+
+```php
+->overrideTraceId('custom-trace-12345')
+->from('PaymentService') // Custom logger origin
+```
+
+#### **Complete Example**
+
+```php
 class PaymentService
 {
     public function processPayment($amount, $userId)
     {
-        return Monitor::controlled('payment_processing')
-            ->with(['amount' => $amount, 'user_id' => $userId]) // Additional log context
-            ->transactioned(3)
-            ->escalated(fn (ControlledFailureMeta $meta) => Slack::notify($meta->toArray()))
-            ->run(function () use ($amount) {
+        return Monitor::controlled('payment_processing', $this)
+            ->addContext([
+                'user_id' => $userId,
+                'amount' => $amount,
+                'currency' => 'USD'
+            ])
+            ->withCircuitBreaker('payment_gateway', 3, 120)
+            ->withDatabaseTransaction(1, [DeadlockException::class])
+            ->catching([
+                PaymentDeclinedException::class => function($e, $meta) {
+                    return ['status' => 'declined', 'reason' => $e->getMessage()];
+                },
+                InsufficientFundsException::class => function($e, $meta) {
+                    return ['status' => 'insufficient_funds'];
+                }
+            ])
+            ->onUncaughtException(fn($e, $meta) => Monitor::escalate($e, $meta))
+            ->run(function() use ($amount) {
                 return $this->chargeCard($amount);
             });
     }
 }
 ```
 
-**What it logs:**
-```json
-// Success
-{"message": "[PaymentService] STARTED", "controlled_block": "payment_processing", "block_id": "01HK..."}
-{"message": "[PaymentService] ENDED", "status": "ok", "duration_ms": 1250}
+#### **📊 What it logs:**
 
-// Failure  
-{"message": "[PaymentService] STARTED", "controlled_block": "payment_processing"}
-{"message": "[PaymentService] FAILED", "exception": "RuntimeException", "trace": [...]}
+**Success:**
+```json
+{"message": "[PaymentProcessor] STARTED", "controlled_block": "payment_processing", "controlled_block_id": "01HK..."}
+{"message": "[PaymentProcessor] ENDED", "status": "ok", "duration_ms": 1250}
 ```
 
-**Advanced Features:**
-- **Circuit Breakers:** `->breaker('service_name', threshold, decaySeconds)` - Automatically opens/closes breaker based on failures
-- **Database Transactions:** `->transactioned(retries, onlyExceptions, excludeExceptions)`. This allows to only retry transaction on specific exceptions, or otherwise ignore specific exception.
-- **Failure Escalation Path:** `->escalated($callback)` for critical business processes
+**Caught Exception (Recovery):**
+```json
+{"message": "[PaymentProcessor] STARTED", "controlled_block": "payment_processing"}
+{"message": "[PaymentProcessor] CAUGHT", "exception": "PaymentDeclinedException", "duration_ms": 500}
+{"message": "[PaymentProcessor] RECOVERED", "recovery_value": "array"}
+```
+
+**Uncaught Exception (Escalation):**
+```json
+{"message": "[PaymentProcessor] STARTED", "controlled_block": "payment_processing"}
+{"message": "[PaymentProcessor] UNCAUGHT", "exception": "RuntimeException", "uncaught": true, "duration_ms": 300}
+```
+
+#### **🎯 API Reference**
+
+| Method | Purpose | Returns |
+|--------|---------|---------|
+| `Controlled::for(string $name)` | Create controlled block | `self` |
+| `->overrideContext(array $context)` | Replace entire context | `self` |
+| `->addContext(array $context)` | Merge additional context | `self` |
+| `->catching(array $handlers)` | Define exception-specific handlers | `self` |
+| `->onUncaughtException(Closure $callback)` | Handle uncaught exceptions only | `self` |
+| `->withCircuitBreaker(string $name, int $threshold, int $decay)` | Configure circuit breaker | `self` |
+| `->withDatabaseTransaction(int $retries, array $only, array $exclude)` | Wrap in DB transaction with retry | `self` |
+| `->overrideTraceId(string $traceId)` | Set custom trace ID | `self` |
+| `->from(string\|object $origin)` | Set logger origin | `self` |
+| `->run(Closure $callback)` | Execute the controlled block | `mixed` |
 
 ### Distributed Tracing
 

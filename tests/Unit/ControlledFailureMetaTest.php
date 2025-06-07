@@ -19,7 +19,7 @@ describe('ControlledFailureMeta', function () {
             exception: null,
             context: ['user_id' => 123],
             breakerTripped: false,
-            escalated: false,
+            uncaught: false,
         );
 
         expect($meta->succeeded())->toBeTrue()
@@ -39,7 +39,7 @@ describe('ControlledFailureMeta', function () {
             exception: $exception,
             context: ['operation' => 'critical'],
             breakerTripped: true,
-            escalated: true,
+            uncaught: true,
         );
 
         expect($meta->failed())->toBeTrue()
@@ -80,7 +80,7 @@ describe('ControlledFailureMeta', function () {
             exception: null,
             context: ['user_id' => 456, 'action' => 'create'],
             breakerTripped: false,
-            escalated: false,
+            uncaught: false,
         );
 
         $array = $meta->toArray();
@@ -93,7 +93,7 @@ describe('ControlledFailureMeta', function () {
             'duration_ms' => 300.75,
             'status' => 'succeeded',
             'breaker_tripped' => false,
-            'escalated' => false,
+            'uncaught' => false,
             'exception' => null,
             'block_context' => ['user_id' => 456, 'action' => 'create'],
         ]);
@@ -111,7 +111,7 @@ describe('ControlledFailureMeta', function () {
             exception: $exception,
             context: ['query' => 'SELECT * FROM users'],
             breakerTripped: true,
-            escalated: true,
+            uncaught: true,
         );
 
         $array = $meta->toArray();
@@ -123,7 +123,7 @@ describe('ControlledFailureMeta', function () {
             ->and($array['duration_ms'])->toBe(2500.0)
             ->and($array['status'])->toBe('failed')
             ->and($array['breaker_tripped'])->toBeTrue()
-            ->and($array['escalated'])->toBeTrue()
+            ->and($array['uncaught'])->toBeTrue()
             ->and($array['block_context'])->toBe(['query' => 'SELECT * FROM users'])
             ->and($array['exception'])->toBeArray()
             ->and($array['exception']['class'])->toBe(RuntimeException::class)
@@ -146,7 +146,7 @@ describe('ControlledFailureMeta', function () {
 
         expect($array['block_context'])->toBe([])
             ->and($array['breaker_tripped'])->toBeFalse()
-            ->and($array['escalated'])->toBeFalse()
+            ->and($array['uncaught'])->toBeFalse()
             ->and($array['exception'])->toBeNull();
     });
 

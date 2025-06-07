@@ -78,23 +78,25 @@ describe('Monitor Facade Integration with Controlled', function () {
 
     it('handles failures with callbacks through facade', function () {
         $failureCalled = false;
-        $escalationCalled = false;
+        $uncaughtCalled = false;
 
-        expect(function () use (&$failureCalled, &$escalationCalled) {
+        expect(function () use (&$failureCalled, &$uncaughtCalled) {
             Monitor::controlled('integration-failure-test')
-                ->failing(function () use (&$failureCalled) {
-                    $failureCalled = true;
-                })
-                ->escalated(function () use (&$escalationCalled) {
-                    $escalationCalled = true;
+                ->catching([
+                    \InvalidArgumentException::class => function () use (&$failureCalled) {
+                        $failureCalled = true; // This should not be called
+                    },
+                ])
+                ->onUncaughtException(function ($exception, $meta) use (&$uncaughtCalled) {
+                    $uncaughtCalled = true; // This should be called for uncaught exceptions
                 })
                 ->run(function () {
-                    throw new RuntimeException('Integration test failure');
+                    throw new RuntimeException('Integration test failure'); // RuntimeException not caught
                 });
         })->toThrow(RuntimeException::class, 'Integration test failure');
 
-        expect($failureCalled)->toBeTrue()
-            ->and($escalationCalled)->toBeTrue();
+        expect($failureCalled)->toBeFalse() // Handler not called since exception type doesn't match
+            ->and($uncaughtCalled)->toBeTrue(); // onUncaughtException called for uncaught exception
     });
 
     it('preserves trace context through facade', function () {
@@ -174,11 +176,13 @@ describe('Real-world Integration Scenarios', function () {
                 'currency' => 'USD',
             ])
 
-            ->failing(function ($exception, $meta) {
-                // Log to financial audit system
-                // In real implementation would call external service
-            })
-            ->escalated(function ($meta) {
+            ->catching([
+                \Throwable::class => function ($exception, $meta) {
+                    // Log to financial audit system
+                    // In real implementation would call external service
+                },
+            ])
+            ->onUncaughtException(function ($exception, $meta) {
                 // Alert financial operations team
                 // In real implementation would trigger alerts
             })
@@ -215,9 +219,11 @@ describe('Real-world Integration Scenarios', function () {
 
             ->withCircuitBreaker('database_write', 3, 60)
             ->withDatabaseTransaction(1) // 1 retry
-            ->failing(function ($exception, $meta) {
-                // Log database issues for monitoring
-            })
+            ->catching([
+                \RuntimeException::class => function ($exception, $meta) {
+                    // Log database issues for monitoring
+                },
+            ])
             ->run(function () {
                 return ['id' => 456, 'status' => 'created'];
             });
@@ -236,10 +242,12 @@ describe('Real-world Integration Scenarios', function () {
             ])
 
             ->overrideTraceId('api-call-trace-789')
-            ->failing(function ($exception, $meta) use (&$apiCallCount) {
-                // Increment failure metrics
-                $apiCallCount++;
-            })
+            ->catching([
+                \Exception::class => function ($exception, $meta) use (&$apiCallCount) {
+                    // Increment failure metrics
+                    $apiCallCount++;
+                },
+            ])
             ->run(function () {
                 // Simulate successful API call
                 return ['charge_id' => 'ch_123', 'amount' => 2000, 'status' => 'succeeded'];

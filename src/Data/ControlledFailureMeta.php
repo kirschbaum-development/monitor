@@ -20,7 +20,7 @@ final readonly class ControlledFailureMeta
         public ?Throwable $exception,
         public array $context = [],
         public bool $breakerTripped = false,
-        public bool $escalated = false,
+        public bool $uncaught = false,
     ) {}
 
     public function failed(): bool
@@ -51,7 +51,7 @@ final readonly class ControlledFailureMeta
             'duration_ms' => $this->durationMs,
             'status' => $this->failed() ? 'failed' : 'succeeded',
             'breaker_tripped' => $this->breakerTripped,
-            'escalated' => $this->escalated,
+            'uncaught' => $this->uncaught,
             'exception' => $this->buildExceptionData(),
             'block_context' => $this->context,
         ];

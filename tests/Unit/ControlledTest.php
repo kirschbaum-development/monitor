@@ -112,18 +112,20 @@ describe('Controlled Class Unit Tests', function () {
     });
 
     describe('Callback Configuration', function () {
-        it('sets failure callback', function () {
-            $callback = fn ($exception, $meta) => null;
+        it('sets exception handlers', function () {
+            $handlers = [
+                \RuntimeException::class => fn ($exception, $meta) => null,
+            ];
 
-            $controlled = Controlled::for('failure-test')->failing($callback);
+            $controlled = Controlled::for('catching-test')->catching($handlers);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
 
-        it('sets escalation callback', function () {
-            $callback = fn ($meta) => null;
+        it('sets uncaught exception callback', function () {
+            $callback = fn ($exception, $meta) => null;
 
-            $controlled = Controlled::for('escalation-test')->escalated($callback);
+            $controlled = Controlled::for('uncaught-exception-test')->onUncaughtException($callback);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });

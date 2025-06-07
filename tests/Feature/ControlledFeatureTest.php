@@ -73,57 +73,112 @@ describe('Controlled Framework Integration', function () {
     });
 
     describe('Failure Handling Integration', function () {
-        it('calls failure callback when operation fails', function () {
-            $failureCalled = false;
+        it('calls exception handler when operation fails', function () {
+            $handlerCalled = false;
             $capturedMeta = null;
 
-            expect(function () use (&$failureCalled, &$capturedMeta) {
-                Controlled::for('fail-callback-test')
-                    ->failing(function ($exception, $meta) use (&$failureCalled, &$capturedMeta) {
-                        $failureCalled = true;
+            // With the new design, caught exceptions don't re-throw unless handler explicitly does so
+            $result = Controlled::for('fail-callback-test')
+                ->catching([
+                    RuntimeException::class => function ($exception, $meta) use (&$handlerCalled, &$capturedMeta) {
+                        $handlerCalled = true;
                         $capturedMeta = $meta;
-                    })
-                    ->run(function () {
-                        throw new RuntimeException('Test failure');
-                    });
-            })->toThrow(RuntimeException::class, 'Test failure');
 
-            expect($failureCalled)->toBeTrue()
+                        return 'handled'; // Return recovery value
+                    },
+                ])
+                ->run(function () {
+                    throw new RuntimeException('Test failure');
+                });
+
+            expect($handlerCalled)->toBeTrue()
                 ->and($capturedMeta)->toBeArray()
                 ->and($capturedMeta['controlled_block'])->toBe('fail-callback-test')
-                ->and($capturedMeta['status'])->toBe('failed');
+                ->and($result)->toBe('handled'); // Should return the recovery value
         });
 
-        it('calls escalation callback when operation fails', function () {
-            $escalationCalled = false;
+        it('calls uncaught exception callback when operation fails with uncaught exception', function () {
+            $uncaughtCalled = false;
             $capturedMeta = null;
 
-            expect(function () use (&$escalationCalled, &$capturedMeta) {
-                Controlled::for('escalate-test')
-                    ->escalated(function ($meta) use (&$escalationCalled, &$capturedMeta) {
-                        $escalationCalled = true;
+            expect(function () use (&$uncaughtCalled, &$capturedMeta) {
+                Controlled::for('uncaught-exception-test')
+                    ->onUncaughtException(function ($exception, $meta) use (&$uncaughtCalled, &$capturedMeta) {
+                        $uncaughtCalled = true;
                         $capturedMeta = $meta;
                     })
                     ->run(function () {
-                        throw new RuntimeException('Test escalation');
+                        throw new RuntimeException('Test uncaught exception');
                     });
-            })->toThrow(RuntimeException::class, 'Test escalation');
+            })->toThrow(RuntimeException::class, 'Test uncaught exception');
 
-            expect($escalationCalled)->toBeTrue()
+            expect($uncaughtCalled)->toBeTrue()
                 ->and($capturedMeta)->toBeArray()
-                ->and($capturedMeta['controlled_block'])->toBe('escalate-test');
+                ->and($capturedMeta['controlled_block'])->toBe('uncaught-exception-test');
         });
 
-        it('continues execution if failure callback throws', function () {
+        it('continues execution if exception handler throws', function () {
             expect(function () {
                 Controlled::for('callback-error-test')
-                    ->failing(function () {
-                        throw new RuntimeException('Callback error');
-                    })
+                    ->catching([
+                        RuntimeException::class => function () {
+                            throw new RuntimeException('Handler error');
+                        },
+                    ])
                     ->run(function () {
                         throw new RuntimeException('Original error');
                     });
             })->toThrow(RuntimeException::class, 'Original error');
+        });
+
+        it('handles exception when handler returns null', function () {
+            $handlerCalled = false;
+            $capturedMeta = null;
+
+            // Test the case where exception handler returns null (or doesn't explicitly return)
+            // This should trigger line 297: return true; // Indicate exception was handled
+            $result = Controlled::for('handler-returns-null-test')
+                ->catching([
+                    RuntimeException::class => function ($exception, $meta) use (&$handlerCalled, &$capturedMeta) {
+                        $handlerCalled = true;
+                        $capturedMeta = $meta;
+
+                        // Explicitly return null to test line 297
+                        return null;
+                    },
+                ])
+                ->run(function () {
+                    throw new RuntimeException('Test exception for null handler');
+                });
+
+            expect($handlerCalled)->toBeTrue()
+                ->and($capturedMeta)->toBeArray()
+                ->and($capturedMeta['controlled_block'])->toBe('handler-returns-null-test')
+                ->and($result)->toBeTrue(); // Should return true when handler returns null
+        });
+
+        it('handles exception when handler has no explicit return', function () {
+            $handlerCalled = false;
+            $capturedMeta = null;
+
+            // Test the case where exception handler doesn't explicitly return anything (implicit null)
+            // This should also trigger line 297: return true; // Indicate exception was handled
+            $result = Controlled::for('handler-no-return-test')
+                ->catching([
+                    RuntimeException::class => function ($exception, $meta) use (&$handlerCalled, &$capturedMeta) {
+                        $handlerCalled = true;
+                        $capturedMeta = $meta;
+                        // No explicit return statement (implicit null)
+                    },
+                ])
+                ->run(function () {
+                    throw new RuntimeException('Test exception for no-return handler');
+                });
+
+            expect($handlerCalled)->toBeTrue()
+                ->and($capturedMeta)->toBeArray()
+                ->and($capturedMeta['controlled_block'])->toBe('handler-no-return-test')
+                ->and($result)->toBeTrue(); // Should return true when handler has no explicit return
         });
     });
 

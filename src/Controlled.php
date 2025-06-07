@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor;
 
 use Closure;
-use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Kirschbaum\Monitor\Data\ControlledFailureMeta;
@@ -17,9 +16,10 @@ final class Controlled
 {
     protected ?string $name = null;
 
-    protected ?Closure $onFail = null;
+    /** @var array<class-string<\Throwable>, \Closure> */
+    protected array $exceptionHandlers = [];
 
-    protected ?Closure $onEscalate = null;
+    protected ?Closure $onUncaughtCallback = null;
 
     /** @var array<string, mixed> */
     protected array $context = [];
@@ -78,16 +78,21 @@ final class Controlled
         return $this;
     }
 
-    public function failing(Closure $callback): self
+    /**
+     * Define exception-specific handlers
+     *
+     * @param  array<class-string<\Throwable>, \Closure>  $handlers
+     */
+    public function catching(array $handlers): self
     {
-        $this->onFail = $callback;
+        $this->exceptionHandlers = $handlers;
 
         return $this;
     }
 
-    public function escalated(Closure $callback): self
+    public function onUncaughtException(Closure $callback): self
     {
-        $this->onEscalate = $callback;
+        $this->onUncaughtCallback = $callback;
 
         return $this;
     }
@@ -155,8 +160,9 @@ final class Controlled
         try {
             // Check circuit breaker
             if ($this->breakerName && $this->isCircuitBreakerOpen($this->breakerName)) {
-                $this->logFailure($blockId, $trace->id(), $timer->elapsed(), null, true);
-                throw new \RuntimeException("Circuit breaker '{$this->breakerName}' is open");
+                $circuitBreakerException = new \RuntimeException("Circuit breaker '{$this->breakerName}' is open");
+                $this->handleUncaughtException($circuitBreakerException, $blockId, $trace->id(), $timer->elapsed());
+                throw $circuitBreakerException;
             }
 
             /** @var array<string, mixed> $startContext */
@@ -195,12 +201,21 @@ final class Controlled
 
                 return $result;
             } catch (Throwable $e) {
-                $this->logFailure($blockId, $trace->id(), $timer->elapsed(), $e);
-
                 // Handle circuit breaker
                 if ($this->breakerName) {
                     $this->recordCircuitBreakerFailure($this->breakerName);
                 }
+
+                // Try to handle the exception with catching handlers
+                $handled = $this->handleCaughtException($e, $blockId, $trace->id(), $timer->elapsed());
+
+                if ($handled) {
+                    // Exception was caught and handled, don't re-throw
+                    return $handled;
+                }
+
+                // Exception was not caught by any handler - this is an uncaught exception
+                $this->handleUncaughtException($e, $blockId, $trace->id(), $timer->elapsed());
 
                 throw $e;
             }
@@ -245,10 +260,61 @@ final class Controlled
         throw $lastException ?? new \RuntimeException('Transaction failed with unknown error.');
     }
 
-    protected function logFailure(string $blockId, string $traceId, float $durationMs, ?Throwable $e, bool $breakerTripped = false): void
+    protected function handleCaughtException(Throwable $e, string $blockId, string $traceId, float $durationMs): mixed
     {
-        $exception = $e ? $this->flattenException($e) : null;
+        // Check if we have any exception handlers that match this exception
+        foreach ($this->exceptionHandlers as $exceptionClass => $handler) {
+            if ($e instanceof $exceptionClass) {
+                $meta = new ControlledFailureMeta(
+                    name: $this->name ?? 'unknown',
+                    id: $blockId,
+                    traceId: $traceId,
+                    attempt: $this->attempt,
+                    durationMs: $durationMs,
+                    exception: $e,
+                    context: $this->context,
+                    breakerTripped: false,
+                    uncaught: false,
+                );
 
+                $this->getLogger()->warning('CAUGHT', $meta->toArray());
+
+                try {
+                    $result = $handler($e, $meta->toArray());
+
+                    // If handler returns a value, use it as recovery value
+                    if ($result !== null) {
+                        $this->getLogger()->info('RECOVERED', [
+                            'controlled_block' => $this->name,
+                            'controlled_block_id' => $blockId,
+                            'exception_class' => get_class($e),
+                            'recovery_value' => is_scalar($result) ? $result : gettype($result),
+                        ]);
+
+                        return $result;
+                    }
+
+                    return true; // Indicate exception was handled
+                } catch (Throwable $handlerException) {
+                    $this->getLogger()->error('EXCEPTION_HANDLER_ERROR', [
+                        'controlled_block' => $this->name,
+                        'controlled_block_id' => $blockId,
+                        'exception_class' => $exceptionClass,
+                        'handler_exception' => $handlerException->getMessage(),
+                        'original_exception' => $e->getMessage(),
+                    ]);
+
+                    // If handler throws, treat as unhandled
+                    return false;
+                }
+            }
+        }
+
+        return false; // No handler found
+    }
+
+    protected function handleUncaughtException(Throwable $e, string $blockId, string $traceId, float $durationMs): void
+    {
         $meta = new ControlledFailureMeta(
             name: $this->name ?? 'unknown',
             id: $blockId,
@@ -257,57 +323,25 @@ final class Controlled
             durationMs: $durationMs,
             exception: $e,
             context: $this->context,
-            breakerTripped: $breakerTripped,
-            escalated: false,
+            breakerTripped: false,
+            uncaught: true,
         );
 
-        $this->getLogger()->critical('FAILED', $meta->toArray());
+        $this->getLogger()->critical('UNCAUGHT', $meta->toArray());
 
-        if ($this->onFail) {
+        // Only call uncaught exception callback
+        if ($this->onUncaughtCallback) {
             try {
-                ($this->onFail)($e, $meta->toArray());
-            } catch (Throwable $callbackException) {
-                $this->getLogger()->error('FAILURE_CALLBACK_ERROR', [
+                ($this->onUncaughtCallback)($e, $meta->toArray());
+            } catch (Throwable $uncaughtCallbackException) {
+                $this->getLogger()->error('UNCAUGHT_CALLBACK_ERROR', [
                     'controlled_block' => $this->name,
                     'controlled_block_id' => $blockId,
-                    'original_exception' => $e?->getMessage(),
-                    'callback_exception' => $callbackException->getMessage(),
+                    'callback_exception' => $uncaughtCallbackException->getMessage(),
+                    'original_exception' => $e->getMessage(),
                 ]);
             }
         }
-
-        if ($this->onEscalate) {
-            try {
-                ($this->onEscalate)($meta->toArray());
-            } catch (Throwable $escalationException) {
-                $this->getLogger()->error('ESCALATION_CALLBACK_ERROR', [
-                    'controlled_block' => $this->name,
-                    'controlled_block_id' => $blockId,
-                    'escalation_exception' => $escalationException->getMessage(),
-                ]);
-            }
-        }
-    }
-
-    /** @return array<string, mixed>|null */
-    private function flattenException(Throwable $e): ?array
-    {
-        if (! Config::boolean('monitor.exception_trace.enabled', true)) {
-            return null;
-        }
-
-        $isDebug = Config::boolean('app.debug') || Config::boolean('monitor.exception_trace.force_full_trace', false);
-        $fullTrace = explode("\n", $e->getTraceAsString());
-
-        return [
-            'class' => get_class($e),
-            'message' => $e->getMessage(),
-            'file' => $e->getFile(),
-            'line' => $e->getLine(),
-            'trace' => $isDebug && Config::boolean('monitor.exception_trace.full_on_debug', true)
-                ? $fullTrace
-                : array_slice($fullTrace, 0, Config::integer('monitor.exception_trace.max_lines', 15)),
-        ];
     }
 
     protected function isCircuitBreakerOpen(string $breakerName): bool

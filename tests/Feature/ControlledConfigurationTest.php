@@ -23,10 +23,13 @@ describe('Controlled Configuration Tests', function () {
             Config::set('monitor.exception_trace.enabled', false);
 
             $controlled = Controlled::for('trace-disabled-test')
-                ->failing(function ($exception, $meta) {
-                    // Check that exception details are null when tracing is disabled
-                    expect($meta['exception'])->toBeNull();
-                });
+                ->catching([
+                    RuntimeException::class => function ($exception, $meta) {
+                        // Check that exception details are null when tracing is disabled
+                        expect($meta['exception'])->toBeNull();
+                        throw $exception; // Re-throw to maintain test expectation
+                    },
+                ]);
 
             expect(fn () => $controlled->run(function () {
                 throw new RuntimeException('Test exception');
@@ -40,9 +43,12 @@ describe('Controlled Configuration Tests', function () {
 
             $exceptionData = null;
             $controlled = Controlled::for('trace-enabled-test')
-                ->failing(function ($exception, $meta) use (&$exceptionData) {
-                    $exceptionData = $meta['exception'];
-                });
+                ->catching([
+                    RuntimeException::class => function ($exception, $meta) use (&$exceptionData) {
+                        $exceptionData = $meta['exception'];
+                        throw $exception; // Re-throw to maintain test expectation
+                    },
+                ]);
 
             expect(fn () => $controlled->run(function () {
                 throw new RuntimeException('Test exception with trace');
@@ -60,9 +66,12 @@ describe('Controlled Configuration Tests', function () {
 
             $exceptionData = null;
             $controlled = Controlled::for('limited-trace-test')
-                ->failing(function ($exception, $meta) use (&$exceptionData) {
-                    $exceptionData = $meta['exception'];
-                });
+                ->catching([
+                    RuntimeException::class => function ($exception, $meta) use (&$exceptionData) {
+                        $exceptionData = $meta['exception'];
+                        throw $exception; // Re-throw to maintain test expectation
+                    },
+                ]);
 
             expect(fn () => $controlled->run(function () {
                 throw new RuntimeException('Test exception with limited trace');
@@ -98,17 +107,20 @@ describe('Controlled Configuration Tests', function () {
         });
     });
 
-    describe('Escalation Callback Exception Handling', function () {
-        it('logs escalation callback errors without affecting main exception', function () {
-            // This tests the escalation callback error handling at lines 290-296
-            $controlled = Controlled::for('escalation-error-logging-test')
-                ->escalated(function ($meta) {
-                    throw new RuntimeException('Escalation failed');
+    describe('Uncaught Exception Callback Exception Handling', function () {
+        it('logs uncaught exception callback errors without affecting main exception', function () {
+            // This tests the uncaught exception callback error handling
+            $controlled = Controlled::for('uncaught-exception-error-logging-test')
+                ->onUncaughtException(function ($exception, $meta) {
+                    throw new RuntimeException('Uncaught exception handler failed');
                 })
-                ->failing(function ($exception, $meta) {
-                    // This should still be called despite escalation failure
-                    expect($exception)->toBeInstanceOf(RuntimeException::class);
-                });
+                ->catching([
+                    RuntimeException::class => function ($exception, $meta) {
+                        // This should still be called despite uncaught exception handler failure
+                        expect($exception)->toBeInstanceOf(RuntimeException::class);
+                        throw $exception; // Re-throw to maintain test expectation
+                    },
+                ]);
 
             expect(fn () => $controlled->run(function () {
                 throw new RuntimeException('Original exception');

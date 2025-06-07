@@ -317,7 +317,7 @@ return [
             'attempt',
             'status',
             'breaker_tripped',
-            'escalated',
+            'uncaught',
 
             'title',
             'type',
