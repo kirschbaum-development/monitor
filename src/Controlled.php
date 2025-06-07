@@ -146,7 +146,7 @@ final class Controlled
 
         $trace = Monitor::trace()->pickup();
         $timer = new LogTimer;
-        $blockId = Str::ulid()->toString();
+        $blockId = Str::uuid()->toString();
 
         // Check for nested Controlled blocks
         $contextTracker = app(ControlledContext::class);

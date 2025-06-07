@@ -8,18 +8,18 @@ use Kirschbaum\Monitor\Exceptions\NestedControlledBlockException;
 
 final class ControlledContext
 {
-    /** @var array{name: string, ulid: string}|null */
+    /** @var array{name: string, uuid: string}|null */
     protected ?array $current = null;
 
-    public function enter(string $name, string $ulid): void
+    public function enter(string $name, string $uuid): void
     {
         if ($this->current !== null) {
             throw new NestedControlledBlockException(
-                "Nested Controlled block detected: attempted to start '{$name}' while already in '{$this->current['name']}' (ULID: {$this->current['ulid']})."
+                "Nested Controlled block detected: attempted to start '{$name}' while already in '{$this->current['name']}' (uuid: {$this->current['uuid']})."
             );
         }
 
-        $this->current = compact('name', 'ulid');
+        $this->current = compact('name', 'uuid');
     }
 
     public function exit(): void
@@ -32,7 +32,7 @@ final class ControlledContext
         return $this->current !== null;
     }
 
-    /** @return array{name: string, ulid: string}|null */
+    /** @return array{name: string, uuid: string}|null */
     public function current(): ?array
     {
         return $this->current;
