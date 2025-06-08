@@ -4,12 +4,11 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use InvalidArgumentException;
 use Kirschbaum\Monitor\CircuitBreaker;
 use Kirschbaum\Monitor\LogTimer;
 use Kirschbaum\Monitor\Monitor;
-use Kirschbaum\Monitor\MonitorWithOrigin;
 use Kirschbaum\Monitor\StructuredLogger;
+use Kirschbaum\Monitor\Support\LogRedactor;
 use Kirschbaum\Monitor\Trace;
 
 it('returns Trace instance from service container', function () {
@@ -104,15 +103,38 @@ it('returns same CircuitBreaker instance for multiple calls', function () {
         ->and($breaker2)->toBeInstanceOf(CircuitBreaker::class);
 });
 
-it('returns MonitorWithOrigin instance with string origin', function () {
+it('returns LogRedactor instance from service container', function () {
     $monitor = new Monitor;
 
-    $monitorWithOrigin = $monitor->from('TestOrigin');
+    $redactor = $monitor->redactor();
 
-    expect($monitorWithOrigin)->toBeInstanceOf(MonitorWithOrigin::class);
+    expect($redactor)->toBeInstanceOf(LogRedactor::class);
 });
 
-it('returns MonitorWithOrigin instance with object origin', function () {
+it('returns new LogRedactor instance for multiple calls', function () {
+    $monitor = new Monitor;
+
+    $redactor1 = $monitor->redactor();
+    $redactor2 = $monitor->redactor();
+
+    // Should be different instances since LogRedactor is not registered as singleton
+    expect($redactor1)->not->toBe($redactor2)
+        ->and($redactor1)->toBeInstanceOf(LogRedactor::class)
+        ->and($redactor2)->toBeInstanceOf(LogRedactor::class);
+});
+
+it('creates controlled execution block with origin parameter', function () {
+    $monitor = new Monitor;
+
+    $result = $monitor->controlled('test_with_origin', 'TestOrigin')
+        ->run(function () {
+            return 'origin_result';
+        });
+
+    expect($result)->toBe('origin_result');
+});
+
+it('creates controlled execution block with object origin', function () {
     $monitor = new Monitor;
 
     $objectOrigin = new class
@@ -123,9 +145,12 @@ it('returns MonitorWithOrigin instance with object origin', function () {
         }
     };
 
-    $monitorWithOrigin = $monitor->from($objectOrigin);
+    $result = $monitor->controlled('test_with_object_origin', $objectOrigin)
+        ->run(function () {
+            return 'object_origin_result';
+        });
 
-    expect($monitorWithOrigin)->toBeInstanceOf(MonitorWithOrigin::class);
+    expect($result)->toBe('object_origin_result');
 });
 
 it('creates controlled execution block and returns result', function () {
@@ -150,13 +175,6 @@ it('creates controlled execution block with context', function () {
         });
 
     expect($result)->toBe('success');
-});
-
-it('throws exception when controlled block name is missing', function () {
-    $monitor = new Monitor;
-
-    expect(fn () => $monitor->controlled()->run(fn () => 'test'))
-        ->toThrow(InvalidArgumentException::class, 'Controlled block name is required');
 });
 
 it('passes through controlled block exceptions correctly', function () {
@@ -207,7 +225,8 @@ it('routes to correct underlying services', function () {
         ->and($monitor->log('test'))->toBeInstanceOf(StructuredLogger::class)
         ->and($monitor->time())->toBeInstanceOf(LogTimer::class)
         ->and($monitor->breaker())->toBeInstanceOf(CircuitBreaker::class)
-        ->and($monitor->from('test'))->toBeInstanceOf(MonitorWithOrigin::class);
+        ->and($monitor->redactor())->toBeInstanceOf(LogRedactor::class)
+        ->and($monitor->controlled('test'))->toBeInstanceOf(\Kirschbaum\Monitor\Controlled::class);
 });
 
 it('handles different return types from controlled block callbacks', function () {

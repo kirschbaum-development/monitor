@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
+use Kirschbaum\Monitor\Support\LogRedactor;
+
 class Monitor
 {
     public function trace(): Trace
@@ -26,20 +28,13 @@ class Monitor
         return app(CircuitBreaker::class);
     }
 
-    public function from(string|object $origin): MonitorWithOrigin
+    public function controlled(string $name, string|object|null $origin = null): Controlled
     {
-        return new MonitorWithOrigin($origin);
+        return Controlled::for($name, $origin);
     }
 
-    /**
-     * Create a controlled execution block.
-     *
-     * Supports fluent interface patterns:
-     * - Monitor::controlled()->from('origin')->for('name')->run($callback)
-     * - Monitor::controlled('name')->from('origin')->run($callback)
-     */
-    public function controlled(?string $name = null): Controlled
+    public function redactor(): LogRedactor
     {
-        return $name !== null ? Controlled::for($name) : new Controlled;
+        return app(LogRedactor::class);
     }
 }

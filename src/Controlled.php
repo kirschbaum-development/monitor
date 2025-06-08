@@ -14,7 +14,7 @@ use Throwable;
 
 final class Controlled
 {
-    protected ?string $name = null;
+    protected string $name;
 
     /** @var array<class-string<\Throwable>, \Closure> */
     protected array $exceptionHandlers = [];
@@ -46,12 +46,18 @@ final class Controlled
 
     protected ?StructuredLogger $logger = null;
 
-    public static function for(string $name): self
+    public function __construct(string $name, string|object|null $origin = null)
     {
-        $instance = new self;
-        $instance->name = $name;
+        $this->name = $name;
 
-        return $instance;
+        if ($origin !== null) {
+            $this->withStructuredLogger(StructuredLogger::from($origin));
+        }
+    }
+
+    public static function for(string $name, string|object|null $origin = null): self
+    {
+        return new self($name, $origin);
     }
 
     /**
@@ -127,9 +133,9 @@ final class Controlled
         return $this;
     }
 
-    public function from(string|object $origin): self
+    public function withStructuredLogger(StructuredLogger $logger): self
     {
-        $this->logger = StructuredLogger::from($origin);
+        $this->logger = $logger;
 
         return $this;
     }
@@ -141,10 +147,6 @@ final class Controlled
 
     protected function execute(Closure $callback): mixed
     {
-        if (! $this->name) {
-            throw new \InvalidArgumentException('Controlled block name is required');
-        }
-
         if ($this->traceIdOverride) {
             Monitor::trace()->override($this->traceIdOverride);
         }
@@ -266,7 +268,7 @@ final class Controlled
         foreach ($this->exceptionHandlers as $exceptionClass => $handler) {
             if ($e instanceof $exceptionClass) {
                 $meta = new ControlledFailureMeta(
-                    name: $this->name ?? 'unknown',
+                    name: $this->name,
                     id: $blockId,
                     traceId: $traceId,
                     attempt: $this->attempt,
@@ -316,7 +318,7 @@ final class Controlled
     protected function handleUncaughtException(Throwable $e, string $blockId, string $traceId, float $durationMs): void
     {
         $meta = new ControlledFailureMeta(
-            name: $this->name ?? 'unknown',
+            name: $this->name,
             id: $blockId,
             traceId: $traceId,
             attempt: $this->attempt,

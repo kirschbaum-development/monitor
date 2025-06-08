@@ -16,11 +16,10 @@ describe('Controlled Class Unit Tests', function () {
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
 
-        it('throws exception when name is not provided for execution', function () {
-            $controlled = new Controlled;
+        it('creates controlled block with constructor', function () {
+            $controlled = new Controlled('test-operation');
 
-            expect(fn () => $controlled->run(fn () => 'test'))
-                ->toThrow(InvalidArgumentException::class, 'Controlled block name is required');
+            expect($controlled)->toBeInstanceOf(Controlled::class);
         });
     });
 
@@ -78,7 +77,7 @@ describe('Controlled Class Unit Tests', function () {
         });
 
         it('sets custom origin', function () {
-            $controlled = Controlled::for('origin-test')->from('CustomOrigin');
+            $controlled = Controlled::for('origin-test', 'CustomOrigin');
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });
@@ -99,13 +98,12 @@ describe('Controlled Class Unit Tests', function () {
 
     describe('Method Chaining', function () {
         it('supports fluent interface chaining', function () {
-            $controlled = Controlled::for('chain-test')
+            $controlled = Controlled::for('chain-test', 'ChainTest')
                 ->overrideContext(['initial' => 'data'])
                 ->addContext(['additional' => 'context'])
                 ->overrideTraceId('custom-trace')
                 ->withCircuitBreaker('test-breaker', 3, 120)
-                ->withDatabaseTransaction(1)
-                ->from('ChainTest');
+                ->withDatabaseTransaction(1);
 
             expect($controlled)->toBeInstanceOf(Controlled::class);
         });

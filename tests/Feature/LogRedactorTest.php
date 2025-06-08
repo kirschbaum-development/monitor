@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Tests\Feature;
 
 use Kirschbaum\Monitor\Support\LogRedactor;
+use Kirschbaum\Monitor\Support\RedactorConfig;
 
 describe('LogRedactor Configuration Tests', function () {
     it('can be disabled via configuration', function () {
@@ -472,51 +473,84 @@ describe('LogRedactor Shannon Entropy Tests', function () {
 describe('LogRedactor Common Pattern Detection Tests', function () {
     it('validates isCommonPattern method directly', function () {
         $redactor = new LogRedactor;
+        $config = RedactorConfig::fromConfig();
         $reflection = new \ReflectionClass($redactor);
         $method = $reflection->getMethod('isCommonPattern');
         $method->setAccessible(true);
 
         // Test short hexadecimal hashes (line 405)
-        expect($method->invoke($redactor, 'abc123'))->toBeTrue()
-            ->and($method->invoke($redactor, '1234567890abcdef'))->toBeTrue()  // 16 chars
-            ->and($method->invoke($redactor, 'deadbeef'))->toBeTrue()
-            ->and($method->invoke($redactor, 'AbC123DeF'))->toBeTrue() // Mixed case
-            ->and($method->invoke($redactor, '1234567890abcdef1234567890abcdef12'))->toBeFalse(); // 34 chars >= 32
+        expect($method->invoke($redactor, 'abc123', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '1234567890abcdef', $config))->toBeTrue()  // 16 chars
+            ->and($method->invoke($redactor, 'deadbeef', $config))->toBeTrue()
+            ->and($method->invoke($redactor, 'AbC123DeF', $config))->toBeTrue() // Mixed case
+            ->and($method->invoke($redactor, '1234567890abcdef1234567890abcdef12', $config))->toBeFalse(); // 34 chars >= 32
 
         // Test whitespace-only strings (line 410)
-        expect($method->invoke($redactor, ''))->toBeTrue()
-            ->and($method->invoke($redactor, '   '))->toBeTrue()
-            ->and($method->invoke($redactor, "\t\t\t"))->toBeTrue()
-            ->and($method->invoke($redactor, " \t \n \r "))->toBeTrue()
-            ->and($method->invoke($redactor, "\n\n\n"))->toBeTrue()
-            ->and($method->invoke($redactor, ' '))->toBeTrue();
+        expect($method->invoke($redactor, '', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '   ', $config))->toBeTrue()
+            ->and($method->invoke($redactor, "\t\t\t", $config))->toBeTrue()
+            ->and($method->invoke($redactor, " \t \n \r ", $config))->toBeTrue()
+            ->and($method->invoke($redactor, "\n\n\n", $config))->toBeTrue()
+            ->and($method->invoke($redactor, ' ', $config))->toBeTrue();
 
         // Test IPv4 addresses (line 420)
-        expect($method->invoke($redactor, '192.168.1.1'))->toBeTrue()
-            ->and($method->invoke($redactor, '127.0.0.1'))->toBeTrue()
-            ->and($method->invoke($redactor, '0.0.0.0'))->toBeTrue()
-            ->and($method->invoke($redactor, '255.255.255.255'))->toBeTrue()
-            ->and($method->invoke($redactor, '999.999.999.999'))->toBeTrue() // Invalid but matches pattern
-            ->and($method->invoke($redactor, '192.168.1'))->toBeFalse()     // Incomplete
-            ->and($method->invoke($redactor, '192.168.1.1:8080'))->toBeFalse(); // With port
+        expect($method->invoke($redactor, '192.168.1.1', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '127.0.0.1', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '0.0.0.0', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '255.255.255.255', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '999.999.999.999', $config))->toBeTrue() // Invalid but matches pattern
+            ->and($method->invoke($redactor, '192.168.1', $config))->toBeFalse()     // Incomplete
+            ->and($method->invoke($redactor, '192.168.1.1:8080', $config))->toBeFalse(); // With port
 
         // Test MAC addresses (line 425)
-        expect($method->invoke($redactor, '00:1b:44:11:3a:b7'))->toBeTrue()
-            ->and($method->invoke($redactor, '00:1B:44:11:3A:B7'))->toBeTrue()
-            ->and($method->invoke($redactor, '00:1b:44:11:3A:b7'))->toBeTrue()
-            ->and($method->invoke($redactor, 'ff:ff:ff:ff:ff:ff'))->toBeTrue()
-            ->and($method->invoke($redactor, '00:00:00:00:00:00'))->toBeTrue()
-            ->and($method->invoke($redactor, '00:1b:44:11:3a'))->toBeFalse()      // Too short
-            ->and($method->invoke($redactor, '00-1b-44-11-3a-b7'))->toBeFalse()   // Different separator
-            ->and($method->invoke($redactor, 'gg:hh:ii:jj:kk:ll'))->toBeFalse();  // Invalid hex
+        expect($method->invoke($redactor, '00:1b:44:11:3a:b7', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '00:1B:44:11:3A:B7', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '00:1b:44:11:3A:b7', $config))->toBeTrue()
+            ->and($method->invoke($redactor, 'ff:ff:ff:ff:ff:ff', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '00:00:00:00:00:00', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '00:1b:44:11:3a', $config))->toBeFalse()      // Too short
+            ->and($method->invoke($redactor, '00-1b-44-11-3a-b7', $config))->toBeFalse()   // Different separator
+            ->and($method->invoke($redactor, 'gg:hh:ii:jj:kk:ll', $config))->toBeFalse();  // Invalid hex
 
         // Test other patterns (existing coverage)
-        expect($method->invoke($redactor, 'https://example.com'))->toBeTrue()
-            ->and($method->invoke($redactor, 'http://test.com'))->toBeTrue()
-            ->and($method->invoke($redactor, '/usr/local/bin/'))->toBeTrue()
-            ->and($method->invoke($redactor, '2023-12-25'))->toBeTrue()
-            ->and($method->invoke($redactor, '550e8400-e29b-41d4-a716-446655440000'))->toBeTrue()
-            ->and($method->invoke($redactor, 'Mozilla/5.0'))->toBeTrue();
+        expect($method->invoke($redactor, 'https://example.com', $config))->toBeTrue()
+            ->and($method->invoke($redactor, 'http://test.com', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '/usr/local/bin/', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '2023-12-25', $config))->toBeTrue()
+            ->and($method->invoke($redactor, '550e8400-e29b-41d4-a716-446655440000', $config))->toBeTrue()
+            ->and($method->invoke($redactor, 'Mozilla/5.0', $config))->toBeTrue();
+    });
+
+    it('uses custom entropy exclusion patterns from configuration', function () {
+        // Set custom patterns that include a pattern for GitHub commit hashes
+        config()->set('monitor.log_redactor.shannon_entropy.exclusion_patterns', [
+            '/^https?:\/\//',                    // URLs
+            '/^[0-9a-f]{40}$/i',                // Full SHA-1 commit hashes (40 chars)
+            '/^custom_prefix_[0-9a-f]{8}$/i',   // Custom pattern
+        ]);
+
+        config()->set('monitor.log_redactor.shannon_entropy.enabled', true);
+        config()->set('monitor.log_redactor.shannon_entropy.threshold', 3.0); // Low threshold
+        config()->set('monitor.log_redactor.shannon_entropy.min_length', 10);
+
+        $redactor = new LogRedactor;
+
+        $context = [
+            'commit_hash' => '1234567890abcdef1234567890abcdef12345678', // 40 char SHA-1
+            'short_hash' => '1234567890abcdef',                         // 16 chars, should be redacted
+            'custom_id' => 'custom_prefix_deadbeef',                    // Matches custom pattern
+            'random_data' => 'abcdefghij1234567890',                    // Random high entropy
+            'url' => 'https://github.com/user/repo',                   // URL
+        ];
+
+        $result = $redactor->redact($context);
+
+        expect($result['commit_hash'])->toBe('1234567890abcdef1234567890abcdef12345678') // Should not be redacted (matches pattern)
+            ->and($result['short_hash'])->toBe('[REDACTED]')                              // Should be redacted (high entropy, no matching pattern)
+            ->and($result['custom_id'])->toBe('custom_prefix_deadbeef')                   // Should not be redacted (matches custom pattern)
+            ->and($result['random_data'])->toBe('[REDACTED]')                             // Should be redacted (high entropy, no matching pattern)
+            ->and($result['url'])->toBe('https://github.com/user/repo')                  // Should not be redacted (matches URL pattern)
+            ->and($result['_redacted'])->toBeTrue();
     });
 });
 
@@ -762,6 +796,426 @@ describe('LogRedactor Object Handling Tests', function () {
 
         // Object should be returned unchanged when it can't be JSON encoded
         expect($result['obj_with_resource'])->toBe($objectWithResource);
+    });
+});
+
+describe('LogRedactor Non-Redactable Object Behavior Tests', function () {
+    beforeEach(function () {
+        config()->set('monitor.log_redactor.enabled', true);
+        config()->set('monitor.log_redactor.replacement', '[REDACTED]');
+        config()->set('monitor.log_redactor.blocked_keys', []);
+    });
+
+    it('preserves non-redactable objects when behavior is preserve', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'preserve');
+
+        $redactor = new LogRedactor;
+
+        // Create an object that cannot be JSON encoded (circular reference)
+        $object = new \stdClass;
+        $object->name = 'John';
+        $object->self = $object; // Circular reference
+
+        $context = ['user' => $object, 'other' => 'value'];
+        $result = $redactor->redact($context);
+
+        expect($result['user'])->toBe($object)
+            ->and($result['other'])->toBe('value')
+            ->and($result)->not->toHaveKey('_redacted');
+    });
+
+    it('removes non-redactable objects when behavior is remove', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'remove');
+
+        $redactor = new LogRedactor;
+
+        // Create an object that cannot be JSON encoded (circular reference)
+        $object = new \stdClass;
+        $object->name = 'John';
+        $object->self = $object; // Circular reference
+
+        $context = ['user' => $object, 'other' => 'value'];
+        $result = $redactor->redact($context);
+
+        expect($result)->not->toHaveKey('user')
+            ->and($result['other'])->toBe('value')
+            ->and($result['_redacted'])->toBeTrue();
+    });
+
+    it('replaces non-redactable objects with empty array when behavior is empty_array', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'empty_array');
+
+        $redactor = new LogRedactor;
+
+        // Create an object that cannot be JSON encoded (circular reference)
+        $object = new \stdClass;
+        $object->name = 'John';
+        $object->self = $object; // Circular reference
+
+        $context = ['user' => $object, 'other' => 'value'];
+        $result = $redactor->redact($context);
+
+        expect($result['user'])->toBe([])
+            ->and($result['other'])->toBe('value')
+            ->and($result['_redacted'])->toBeTrue();
+    });
+
+    it('replaces non-redactable objects with redaction text when behavior is redact', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'redact');
+
+        $redactor = new LogRedactor;
+
+        // Create an object that cannot be JSON encoded (circular reference)
+        $object = new \stdClass;
+        $object->name = 'John';
+        $object->self = $object; // Circular reference
+
+        $context = ['user' => $object, 'other' => 'value'];
+        $result = $redactor->redact($context);
+
+        expect($result['user'])->toBeString()
+            ->and($result['user'])->toContain('[REDACTED]')
+            ->and($result['user'])->toContain('stdClass')
+            ->and($result['other'])->toBe('value')
+            ->and($result['_redacted'])->toBeTrue();
+    });
+
+    it('handles objects with toArray method that throw exceptions but can still be JSON encoded', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'redact');
+
+        $redactor = new LogRedactor;
+
+        // Create an object with toArray method that throws exception
+        // but can still be JSON encoded (so it will be processed normally)
+        $object = new class
+        {
+            public $name = 'test';
+
+            public function toArray(): array
+            {
+                throw new \RuntimeException('toArray failed');
+            }
+        };
+
+        $context = ['user' => $object];
+        $result = $redactor->redact($context);
+
+        // Since the object can be JSON encoded, it will be processed normally
+        expect($result['user'])->toBeArray()
+            ->and($result['user']['name'])->toBe('test')
+            ->and($result)->not->toHaveKey('_redacted');
+    });
+
+    it('handles objects that truly cannot be processed', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'redact');
+
+        $redactor = new LogRedactor;
+
+        // Create an object that has both failing toArray and circular reference
+        // This will fail both toArray and JSON encoding
+        $object = new class
+        {
+            public $name = 'test';
+
+            public $self;
+
+            public function __construct()
+            {
+                $this->self = $this; // Circular reference
+            }
+
+            public function toArray(): array
+            {
+                throw new \RuntimeException('toArray failed');
+            }
+        };
+
+        $context = ['user' => $object];
+        $result = $redactor->redact($context);
+
+        expect($result['user'])->toBeString()
+            ->and($result['user'])->toContain('[REDACTED]')
+            ->and($result['user'])->toContain('class@anonymous')
+            ->and($result['_redacted'])->toBeTrue();
+    });
+
+    it('tracks redacted keys when track_redacted_keys is enabled', function () {
+        config()->set('monitor.log_redactor.track_redacted_keys', true);
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'remove');
+        config()->set('monitor.log_redactor.blocked_keys', ['password']);
+
+        $redactor = new LogRedactor;
+
+        // Create an object that cannot be JSON encoded (circular reference)
+        $object = new \stdClass;
+        $object->self = $object;
+
+        $context = [
+            'user' => $object, // Will be removed
+            'password' => 'secret', // Will be redacted via blocked_keys
+            'other' => 'value',
+        ];
+        $result = $redactor->redact($context);
+
+        expect($result)->not->toHaveKey('user')
+            ->and($result['password'])->toBe('[REDACTED]')
+            ->and($result['other'])->toBe('value')
+            ->and($result['_redacted'])->toBeTrue()
+            ->and($result['_redacted_keys'])->toContain('password');
+    });
+
+    it('handles objects that cause JSON decode to return non-array with different behaviors', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'empty_array');
+
+        $redactor = new LogRedactor;
+
+        // Create an object that implements JsonSerializable to return a non-array value
+        $mockObject = new class implements \JsonSerializable
+        {
+            public function jsonSerialize(): string
+            {
+                return 'this_will_be_a_string_when_decoded';
+            }
+        };
+
+        $context = ['user' => $mockObject];
+        $result = $redactor->redact($context);
+
+        expect($result['user'])->toBe([])
+            ->and($result['_redacted'])->toBeTrue();
+    });
+
+    it('logs warnings for non-redactable objects as promised', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'preserve');
+
+        \TiMacDonald\Log\LogFake::bind();
+
+        $redactor = new LogRedactor;
+
+        // Test case 1: Circular reference (JSON encode fails)
+        $circularObject = new \stdClass;
+        $circularObject->self = $circularObject;
+
+        $context1 = ['circular' => $circularObject];
+        $result1 = $redactor->redact($context1);
+
+        expect($result1['circular'])->toBe($circularObject);
+
+        // Verify warning was logged for JSON exception (circular reference)
+        \Illuminate\Support\Facades\Log::assertLogged(function (\TiMacDonald\Log\LogEntry $log) {
+            return $log->level === 'warning'
+                && str_contains($log->message, '[LogRedactor] Exception while trying to redact object');
+        });
+
+        // Test case 2: Object with JsonSerializable returning non-array
+        $nonArrayObject = new class implements \JsonSerializable
+        {
+            public function jsonSerialize(): string
+            {
+                return 'not_an_array';
+            }
+        };
+
+        $context2 = ['non_array' => $nonArrayObject];
+        $result2 = $redactor->redact($context2);
+
+        expect($result2['non_array'])->toBe($nonArrayObject);
+
+        // Verify warning was logged for JSON decode not returning array
+        \Illuminate\Support\Facades\Log::assertLogged(function (\TiMacDonald\Log\LogEntry $log) {
+            return $log->level === 'warning'
+                && str_contains($log->message, '[LogRedactor] Unable to redact object - JSON decode did not return array');
+        });
+
+        // Test case 3: Object with resource that causes JSON encode to fail
+        $resourceObject = new class
+        {
+            public $resource;
+
+            public function __construct()
+            {
+                $this->resource = fopen('php://memory', 'r');
+            }
+
+            public function __destruct()
+            {
+                if (is_resource($this->resource)) {
+                    fclose($this->resource);
+                }
+            }
+        };
+
+        $context3 = ['resource' => $resourceObject];
+        $result3 = $redactor->redact($context3);
+
+        expect($result3['resource'])->toBe($resourceObject);
+
+        // Verify warning was logged for resource object (JSON exception)
+        \Illuminate\Support\Facades\Log::assertLogged(function (\TiMacDonald\Log\LogEntry $log) {
+            return $log->level === 'warning'
+                && str_contains($log->message, '[LogRedactor] Exception while trying to redact object');
+        });
+    });
+
+    it('logs warnings when exceptions occur during object processing', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'redact');
+
+        \TiMacDonald\Log\LogFake::bind();
+
+        $redactor = new LogRedactor;
+
+        // Create an object that has both failing toArray and circular reference
+        // This will cause an exception during JSON processing
+        $object = new class
+        {
+            public $name = 'test';
+
+            public $self;
+
+            public function __construct()
+            {
+                $this->self = $this; // Circular reference
+            }
+
+            public function toArray(): array
+            {
+                throw new \RuntimeException('toArray failed');
+            }
+        };
+
+        $context = ['user' => $object];
+        $result = $redactor->redact($context);
+
+        expect($result['user'])->toBeString()
+            ->and($result['user'])->toContain('[REDACTED]')
+            ->and($result['user'])->toContain('class@anonymous')
+            ->and($result['_redacted'])->toBeTrue();
+
+        // Verify warning was logged for the exception
+        \Illuminate\Support\Facades\Log::assertLogged(function (\TiMacDonald\Log\LogEntry $log) {
+            return $log->level === 'warning'
+                && str_contains($log->message, '[LogRedactor] Exception while trying to redact object');
+        });
+    });
+
+    it('properly redacts objects with working toArray method', function () {
+        config()->set('monitor.log_redactor.blocked_keys', ['password', 'secret']);
+        config()->set('monitor.log_redactor.safe_keys', ['id']);
+
+        $redactor = new LogRedactor;
+
+        // Create an object with a working toArray method that returns redactable content
+        $object = new class
+        {
+            public function toArray(): array
+            {
+                return [
+                    'id' => 123,
+                    'password' => 'secret123',
+                    'secret' => 'hidden',
+                    'name' => 'John Doe',
+                ];
+            }
+        };
+
+        $context = ['user' => $object];
+        $result = $redactor->redact($context);
+
+        // Should redact the array returned by toArray()
+        expect($result['user'])->toBeArray()
+            ->and($result['user']['id'])->toBe(123) // Safe key
+            ->and($result['user']['password'])->toBe('[REDACTED]') // Blocked key
+            ->and($result['user']['secret'])->toBe('[REDACTED]') // Blocked key
+            ->and($result['user']['name'])->toBe('John Doe') // Normal data
+            ->and($result['_redacted'])->toBeTrue();
+    });
+
+    it('logs warnings when actual exceptions are thrown during JSON processing', function () {
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'preserve');
+
+        \TiMacDonald\Log\LogFake::bind();
+
+        $redactor = new LogRedactor;
+
+        // Create an object that will cause a JSON encoding exception
+        // Circular references will now throw with JSON_THROW_ON_ERROR
+        $object = new \stdClass;
+        $object->self = $object; // Circular reference
+
+        $context = ['problematic' => $object];
+        $result = $redactor->redact($context);
+
+        // Should handle the exception and return original object (preserve behavior)
+        expect($result['problematic'])->toBe($object);
+
+        // Verify warning was logged for the actual exception
+        \Illuminate\Support\Facades\Log::assertLogged(function (\TiMacDonald\Log\LogEntry $log) {
+            return $log->level === 'warning'
+                && str_contains($log->message, '[LogRedactor] Exception while trying to redact object')
+                && isset($log->context['context']['reason'])
+                && $log->context['context']['reason'] === 'exception_during_processing'
+                && isset($log->context['context']['exception_type'])
+                && $log->context['context']['exception_type'] === 'JsonException';
+        });
+    });
+});
+
+describe('RedactorConfig DTO Tests', function () {
+    it('creates config from Laravel configuration with defaults', function () {
+        // Clear all config to test defaults
+        config()->set('monitor.log_redactor.safe_keys', []);
+        config()->set('monitor.log_redactor.blocked_keys', []);
+        config()->set('monitor.log_redactor.patterns', []);
+        // Don't set replacement to test default behavior
+        config()->set('monitor.log_redactor.max_value_length', null);
+
+        $config = \Kirschbaum\Monitor\Support\RedactorConfig::fromConfig();
+
+        expect($config->safeKeys)->toBe([])
+            ->and($config->blockedKeys)->toBe([])
+            ->and($config->patterns)->toBe([])
+            ->and($config->replacement)->toBe('[REDACTED]')
+            ->and($config->maxValueLength)->toBeNull()
+            ->and($config->redactLargeObjects)->toBeTrue()
+            ->and($config->maxObjectSize)->toBe(100)
+            ->and($config->enableShannonEntropy)->toBeTrue()
+            ->and($config->entropyThreshold)->toBe(4.8)
+            ->and($config->minLength)->toBe(25)
+            ->and($config->markRedacted)->toBeTrue()
+            ->and($config->trackRedactedKeys)->toBeFalse()
+            ->and($config->nonRedactableObjectBehavior)->toBe('preserve');
+    });
+
+    it('creates config with custom values and handles invalid patterns', function () {
+        config()->set('monitor.log_redactor.safe_keys', ['ID', 'User_ID']);
+        config()->set('monitor.log_redactor.blocked_keys', ['PASSWORD', 'Secret']);
+        config()->set('monitor.log_redactor.patterns', [
+            '/valid-pattern/',
+            '(invalid-pattern', // Invalid regex
+            '/another-valid-pattern/',
+        ]);
+        config()->set('monitor.log_redactor.replacement', '[CUSTOM]');
+        config()->set('monitor.log_redactor.max_value_length', 100);
+        config()->set('monitor.log_redactor.track_redacted_keys', true);
+        config()->set('monitor.log_redactor.non_redactable_object_behavior', 'remove');
+
+        $config = \Kirschbaum\Monitor\Support\RedactorConfig::fromConfig();
+
+        expect($config->safeKeys)->toBe(['id', 'user_id']) // Converted to lowercase
+            ->and($config->blockedKeys)->toBe(['password', 'secret']) // Converted to lowercase
+            ->and($config->patterns)->toBe(['/valid-pattern/', '/another-valid-pattern/']) // Invalid pattern filtered out
+            ->and($config->replacement)->toBe('[CUSTOM]')
+            ->and($config->maxValueLength)->toBe(100)
+            ->and($config->trackRedactedKeys)->toBeTrue()
+            ->and($config->nonRedactableObjectBehavior)->toBe('remove');
+    });
+
+    it('handles non-integer max_value_length config', function () {
+        config()->set('monitor.log_redactor.max_value_length', 'not_an_integer');
+
+        $config = \Kirschbaum\Monitor\Support\RedactorConfig::fromConfig();
+
+        expect($config->maxValueLength)->toBeNull();
     });
 });
 

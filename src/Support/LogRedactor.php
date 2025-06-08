@@ -5,9 +5,97 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Support;
 
 use Illuminate\Support\Facades\Config;
+use Kirschbaum\Monitor\Facades\Monitor;
+
+final class RedactorConfig
+{
+    public function __construct(
+        /** @var array<string> */
+        public array $safeKeys = [],
+        /** @var array<string> */
+        public array $blockedKeys = [],
+        /** @var array<string> */
+        public array $patterns = [],
+        public string $replacement = '[REDACTED]',
+        public ?int $maxValueLength = null,
+        public bool $redactLargeObjects = true,
+        public int $maxObjectSize = 50,
+        public bool $enableShannonEntropy = true,
+        public float $entropyThreshold = 4.5,
+        public int $minLength = 20,
+        /** @var array<string> */
+        public array $entropyExclusionPatterns = [],
+        public bool $markRedacted = true,
+        public bool $trackRedactedKeys = false,
+        public string $nonRedactableObjectBehavior = 'preserve'
+    ) {}
+
+    public static function fromConfig(): self
+    {
+        /** @var array<string> $safeKeys */
+        $safeKeys = Config::array('monitor.log_redactor.safe_keys', []);
+        /** @var array<string> $blockedKeys */
+        $blockedKeys = Config::array('monitor.log_redactor.blocked_keys', []);
+        /** @var array<string> $patterns */
+        $patterns = Config::array('monitor.log_redactor.patterns', []);
+
+        // Ensure we only have string values and apply transformations
+        $safeKeysLower = array_map(function (string $key): string {
+            return strtolower($key);
+        }, $safeKeys);
+
+        $blockedKeysLower = array_map(function (string $key): string {
+            return strtolower($key);
+        }, $blockedKeys);
+
+        $validPatterns = array_filter($patterns, fn (string $pattern): bool => @preg_match($pattern, '') !== false);
+
+        // Handle nullable max value length
+        $maxValueLength = Config::get('monitor.log_redactor.max_value_length');
+        $maxValueLengthTyped = is_int($maxValueLength) ? $maxValueLength : null;
+
+        /** @var array<string> $entropyExclusionPatterns */
+        $entropyExclusionPatterns = Config::array('monitor.log_redactor.shannon_entropy.exclusion_patterns', [
+            '/^https?:\/\//',                                                           // URLs
+            '/^[\/\\\\].+[\/\\\\]/',                                                   // File paths
+            '/^\d{4}-\d{2}-\d{2}/',                                                    // Date formats
+            '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',     // UUIDs
+            '/^[0-9a-f]+$/i',                                                          // Hex strings (checked with length < 32)
+            '/^\s*$/',                                                                 // Whitespace strings
+            '/^Mozilla\/\d\.\d|^[A-Za-z]+\/\d+\.\d+|AppleWebKit|Chrome|Safari|Firefox|Opera|Edge/', // User agents
+            '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/',                                // IPv4 addresses
+            '/^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i', // MAC addresses
+        ]);
+
+        $validExclusionPatterns = array_filter($entropyExclusionPatterns, fn (string $pattern): bool => @preg_match($pattern, '') !== false);
+
+        return new self(
+            safeKeys: $safeKeysLower,
+            blockedKeys: $blockedKeysLower,
+            patterns: array_values($validPatterns), // Re-index array
+            replacement: Config::string('monitor.log_redactor.replacement', '[REDACTED]'),
+            maxValueLength: $maxValueLengthTyped,
+            redactLargeObjects: Config::boolean('monitor.log_redactor.redact_large_objects', true),
+            maxObjectSize: Config::integer('monitor.log_redactor.max_object_size', 50),
+            enableShannonEntropy: Config::boolean('monitor.log_redactor.shannon_entropy.enabled', true),
+            entropyThreshold: Config::float('monitor.log_redactor.shannon_entropy.threshold', 4.5),
+            minLength: Config::integer('monitor.log_redactor.shannon_entropy.min_length', 20),
+            entropyExclusionPatterns: array_values($validExclusionPatterns), // Re-index array
+            markRedacted: Config::boolean('monitor.log_redactor.mark_redacted', true),
+            trackRedactedKeys: Config::boolean('monitor.log_redactor.track_redacted_keys', false),
+            nonRedactableObjectBehavior: Config::string('monitor.log_redactor.non_redactable_object_behavior', 'preserve')
+        );
+    }
+}
 
 class LogRedactor
 {
+    /** @var array<string> */
+    private array $redactedKeys = [];
+
+    /** @var array<string, float> */
+    private array $entropyCache = [];
+
     /**
      * Redact sensitive data from log context.
      *
@@ -20,60 +108,19 @@ class LogRedactor
             return $context;
         }
 
-        // Get configuration
-        /** @var array<string> $safeKeysConfig */
-        $safeKeysConfig = Config::get('monitor.log_redactor.safe_keys', []);
-        $safeKeys = array_map('strtolower', $safeKeysConfig);
-
-        /** @var array<string> $blockedKeysConfig */
-        $blockedKeysConfig = Config::get('monitor.log_redactor.blocked_keys', []);
-        $blockedKeys = array_map('strtolower', $blockedKeysConfig);
-
-        /** @var array<string, string> $patterns */
-        $patterns = Config::get('monitor.log_redactor.patterns', []);
-
-        /** @var string $replacement */
-        $replacement = Config::get('monitor.log_redactor.replacement', '[REDACTED]');
-
-        /** @var bool $markRedacted */
-        $markRedacted = Config::get('monitor.log_redactor.mark_redacted', true);
-
-        /** @var int|null $maxValueLength */
-        $maxValueLength = Config::get('monitor.log_redactor.max_value_length');
-
-        /** @var bool $redactLargeObjects */
-        $redactLargeObjects = Config::get('monitor.log_redactor.redact_large_objects', true);
-
-        /** @var int $maxObjectSize */
-        $maxObjectSize = Config::get('monitor.log_redactor.max_object_size', 50);
-
-        /** @var bool $enableShannonEntropy */
-        $enableShannonEntropy = Config::get('monitor.log_redactor.shannon_entropy.enabled', true);
-
-        /** @var float $entropyThreshold */
-        $entropyThreshold = Config::get('monitor.log_redactor.shannon_entropy.threshold', 4.5);
-
-        /** @var int $minLength */
-        $minLength = Config::get('monitor.log_redactor.shannon_entropy.min_length', 20);
+        $config = RedactorConfig::fromConfig();
+        $this->redactedKeys = [];
+        $this->entropyCache = [];
 
         $wasRedacted = false;
-        $redactedContext = $this->redactRecursively(
-            $context,
-            $safeKeys,
-            $blockedKeys,
-            $patterns,
-            $replacement,
-            $maxValueLength,
-            $redactLargeObjects,
-            $maxObjectSize,
-            $enableShannonEntropy,
-            $entropyThreshold,
-            $minLength,
-            $wasRedacted
-        );
+        $redactedContext = $this->redactRecursively($context, $config, $wasRedacted);
 
-        if (is_array($redactedContext) && $wasRedacted && $markRedacted) {
+        if (is_array($redactedContext) && $wasRedacted && $config->markRedacted) {
             $redactedContext['_redacted'] = true;
+
+            if ($config->trackRedactedKeys && ! empty($this->redactedKeys)) {
+                $redactedContext['_redacted_keys'] = array_unique($this->redactedKeys);
+            }
         }
 
         /** @var array<string, mixed> $result */
@@ -84,73 +131,25 @@ class LogRedactor
 
     /**
      * Recursively redact data from arrays and objects.
-     *
-     * @param  array<string>  $safeKeys
-     * @param  array<string>  $blockedKeys
-     * @param  array<string, string>  $patterns
      */
     protected function redactRecursively(
         mixed $data,
-        array $safeKeys,
-        array $blockedKeys,
-        array $patterns,
-        string $replacement,
-        ?int $maxValueLength,
-        bool $redactLargeObjects,
-        int $maxObjectSize,
-        bool $enableShannonEntropy,
-        float $entropyThreshold,
-        int $minLength,
+        RedactorConfig $config,
         bool &$wasRedacted
     ): mixed {
         if (is_array($data)) {
             /** @var array<string, mixed> $arrayData */
             $arrayData = $data;
 
-            return $this->redactArray(
-                $arrayData,
-                $safeKeys,
-                $blockedKeys,
-                $patterns,
-                $replacement,
-                $maxValueLength,
-                $redactLargeObjects,
-                $maxObjectSize,
-                $enableShannonEntropy,
-                $entropyThreshold,
-                $minLength,
-                $wasRedacted
-            );
+            return $this->redactArray($arrayData, $config, $wasRedacted);
         }
 
         if (is_object($data)) {
-            return $this->redactObject(
-                $data,
-                $safeKeys,
-                $blockedKeys,
-                $patterns,
-                $replacement,
-                $maxValueLength,
-                $redactLargeObjects,
-                $maxObjectSize,
-                $enableShannonEntropy,
-                $entropyThreshold,
-                $minLength,
-                $wasRedacted
-            );
+            return $this->redactObject($data, $config, $wasRedacted);
         }
 
         if (is_string($data)) {
-            return $this->redactString(
-                $data,
-                $patterns,
-                $replacement,
-                $maxValueLength,
-                $enableShannonEntropy,
-                $entropyThreshold,
-                $minLength,
-                $wasRedacted
-            );
+            return $this->redactString($data, $config, $wasRedacted);
         }
 
         return $data;
@@ -160,30 +159,18 @@ class LogRedactor
      * Redact sensitive data from an array.
      *
      * @param  array<string, mixed>  $array
-     * @param  array<string>  $safeKeys
-     * @param  array<string>  $blockedKeys
-     * @param  array<string, string>  $patterns
      * @return array<string, mixed>
      */
     protected function redactArray(
         array $array,
-        array $safeKeys,
-        array $blockedKeys,
-        array $patterns,
-        string $replacement,
-        ?int $maxValueLength,
-        bool $redactLargeObjects,
-        int $maxObjectSize,
-        bool $enableShannonEntropy,
-        float $entropyThreshold,
-        int $minLength,
+        RedactorConfig $config,
         bool &$wasRedacted
     ): array {
         // Check if array is too large
-        if ($redactLargeObjects && count($array) > $maxObjectSize) {
+        if ($config->redactLargeObjects && count($array) > $config->maxObjectSize) {
             $wasRedacted = true;
 
-            return ['_large_object_redacted' => sprintf('%s (Array with %d items)', $replacement, count($array))];
+            return ['_large_object_redacted' => sprintf('%s (Array with %d items)', $config->replacement, count($array))];
         }
 
         $result = [];
@@ -192,35 +179,31 @@ class LogRedactor
             $keyLower = strtolower((string) $key);
 
             // Priority 1: Safe keys - always show unredacted
-            if (in_array($keyLower, $safeKeys, true)) {
+            if (in_array($keyLower, $config->safeKeys, true)) {
                 $result[$key] = $value;
 
                 continue;
             }
 
             // Priority 2: Blocked keys - always redact
-            if (in_array($keyLower, $blockedKeys, true)) {
-                $result[$key] = $replacement;
+            if (in_array($keyLower, $config->blockedKeys, true)) {
+                $result[$key] = $config->replacement;
                 $wasRedacted = true;
+                $this->redactedKeys[] = (string) $key;
 
                 continue;
             }
 
             // Priority 3 & 4: Recursively process the value (applies regex and shannon entropy)
-            $result[$key] = $this->redactRecursively(
-                $value,
-                $safeKeys,
-                $blockedKeys,
-                $patterns,
-                $replacement,
-                $maxValueLength,
-                $redactLargeObjects,
-                $maxObjectSize,
-                $enableShannonEntropy,
-                $entropyThreshold,
-                $minLength,
-                $wasRedacted
-            );
+            $processedValue = $this->redactRecursively($value, $config, $wasRedacted);
+
+            // Handle object removal case
+            if ($processedValue === '__MONITOR_REMOVE_OBJECT__') {
+                // Skip adding this key to the result (effectively removing it)
+                continue;
+            }
+
+            $result[$key] = $processedValue;
         }
 
         return $result;
@@ -228,99 +211,144 @@ class LogRedactor
 
     /**
      * Redact sensitive data from an object.
-     *
-     * @param  array<string>  $safeKeys
-     * @param  array<string>  $blockedKeys
-     * @param  array<string, string>  $patterns
      */
     protected function redactObject(
         object $object,
-        array $safeKeys,
-        array $blockedKeys,
-        array $patterns,
-        string $replacement,
-        ?int $maxValueLength,
-        bool $redactLargeObjects,
-        int $maxObjectSize,
-        bool $enableShannonEntropy,
-        float $entropyThreshold,
-        int $minLength,
+        RedactorConfig $config,
         bool &$wasRedacted
     ): mixed {
-        // Convert object to array for processing
-        $jsonString = json_encode($object);
-        if ($jsonString === false) {
-            return $object;
+        // Try to convert object to array using toArray() method if available
+        if (method_exists($object, 'toArray')) {
+            try {
+                /** @var array<string, mixed> $array */
+                $array = $object->toArray();
+
+                return $this->redactArray($array, $config, $wasRedacted);
+            } catch (\Throwable) {
+                // Fall through to other methods
+            }
         }
 
-        $array = json_decode($jsonString, true);
+        // Try JSON encoding first to detect circular references and other issues
+        try {
+            $jsonString = json_encode($object, JSON_THROW_ON_ERROR);
 
-        if (! is_array($array)) {
-            return $object;
+            $array = json_decode($jsonString, true, 512, JSON_THROW_ON_ERROR);
+            if (! is_array($array)) {
+                // JSON decode didn't return an array
+                Monitor::log('LogRedactor')->warning('Unable to redact object - JSON decode did not return array', [
+                    'object_class' => get_class($object),
+                    'reason' => 'json_decode_not_array',
+                    'decoded_type' => gettype($array),
+                    'behavior' => $config->nonRedactableObjectBehavior,
+                ]);
+
+                return $this->handleNonRedactableObject($object, $config, $wasRedacted);
+            }
+
+            // Check if object is too large
+            if ($config->redactLargeObjects && count($array) > $config->maxObjectSize) {
+                $wasRedacted = true;
+
+                return ['_large_object_redacted' => sprintf('%s (Object %s with %d properties)', $config->replacement, get_class($object), count($array))];
+            }
+
+            /** @var array<string, mixed> $arrayData */
+            $arrayData = $array;
+
+            return $this->redactArray($arrayData, $config, $wasRedacted);
+        } catch (\Throwable $e) {
+            // If JSON encoding/decoding fails, it's likely due to circular references,
+            // resources, or other non-serializable content. Return the original object
+            // to avoid infinite recursion or other issues.
+            Monitor::log('LogRedactor')->warning('Exception while trying to redact object', [
+                'object_class' => get_class($object),
+                'reason' => 'exception_during_processing',
+                'exception_type' => get_class($e),
+                'exception_message' => $e->getMessage(),
+                'behavior' => $config->nonRedactableObjectBehavior,
+            ]);
+
+            return $this->handleNonRedactableObject($object, $config, $wasRedacted);
         }
+    }
 
-        // Check if object is too large
-        if ($redactLargeObjects && count($array) > $maxObjectSize) {
-            $wasRedacted = true;
+    /**
+     * Handle objects that cannot be redacted based on configuration.
+     */
+    protected function handleNonRedactableObject(
+        object $object,
+        RedactorConfig $config,
+        bool &$wasRedacted
+    ): mixed {
+        return match ($config->nonRedactableObjectBehavior) {
+            'remove' => $this->removeObject($wasRedacted),
+            'empty_array' => $this->replaceWithEmptyArray($wasRedacted),
+            'redact' => $this->replaceWithRedactionText($object, $config, $wasRedacted),
+            default => $object, // 'preserve' or any unknown value
+        };
+    }
 
-            return ['_large_object_redacted' => sprintf('%s (Object %s with %d properties)', $replacement, get_class($object), count($array))];
-        }
+    /**
+     * Remove the object entirely (return a special marker that can be filtered out).
+     */
+    protected function removeObject(bool &$wasRedacted): string
+    {
+        $wasRedacted = true;
 
-        /** @var array<string, mixed> $arrayData */
-        $arrayData = $array;
+        return '__MONITOR_REMOVE_OBJECT__';
+    }
 
-        return $this->redactArray(
-            $arrayData,
-            $safeKeys,
-            $blockedKeys,
-            $patterns,
-            $replacement,
-            $maxValueLength,
-            $redactLargeObjects,
-            $maxObjectSize,
-            $enableShannonEntropy,
-            $entropyThreshold,
-            $minLength,
-            $wasRedacted
-        );
+    /** @return array<string, mixed> */
+    protected function replaceWithEmptyArray(bool &$wasRedacted): array
+    {
+        $wasRedacted = true;
+
+        return [];
+    }
+
+    /**
+     * Replace with redaction text.
+     */
+    protected function replaceWithRedactionText(
+        object $object,
+        RedactorConfig $config,
+        bool &$wasRedacted
+    ): string {
+        $wasRedacted = true;
+
+        return sprintf('%s (Non-redactable object %s)', $config->replacement, get_class($object));
     }
 
     /**
      * Redact sensitive data from a string.
-     *
-     * @param  array<string, string>  $patterns
      */
     protected function redactString(
         string $string,
-        array $patterns,
-        string $replacement,
-        ?int $maxValueLength,
-        bool $enableShannonEntropy,
-        float $entropyThreshold,
-        int $minLength,
+        RedactorConfig $config,
         bool &$wasRedacted
     ): string {
         // Check if string is too long
-        if ($maxValueLength !== null && strlen($string) > $maxValueLength) {
+        if ($config->maxValueLength !== null && strlen($string) > $config->maxValueLength) {
             $wasRedacted = true;
 
-            return sprintf('%s (String with %d characters)', $replacement, strlen($string));
+            return sprintf('%s (String with %d characters)', $config->replacement, strlen($string));
         }
 
         // Priority 3: Apply regex patterns
-        foreach ($patterns as $pattern) {
+        foreach ($config->patterns as $pattern) {
             if (preg_match($pattern, $string)) {
                 $wasRedacted = true;
 
-                return $replacement;
+                return $config->replacement;
             }
         }
 
         // Priority 4: Shannon entropy analysis
-        if ($enableShannonEntropy && $this->shouldRedactByEntropy($string, $entropyThreshold, $minLength)) {
+        if ($config->enableShannonEntropy && $this->shouldRedactByEntropy($string, $config)) {
             $wasRedacted = true;
 
-            return $replacement;
+            return $config->replacement;
         }
 
         return $string;
@@ -329,38 +357,43 @@ class LogRedactor
     /**
      * Determine if a string should be redacted based on Shannon entropy.
      */
-    protected function shouldRedactByEntropy(string $string, float $entropyThreshold, int $minLength): bool
+    protected function shouldRedactByEntropy(string $string, RedactorConfig $config): bool
     {
         // Only analyze strings that meet minimum length requirement
-        if (strlen($string) < $minLength) {
+        if (strlen($string) < $config->minLength) {
             return false;
         }
 
         // Skip common words and patterns that might have high entropy but are not sensitive
-        if ($this->isCommonPattern($string)) {
+        if ($this->isCommonPattern($string, $config)) {
             return false;
         }
 
         $entropy = $this->calculateShannonEntropy($string);
 
-        return $entropy >= $entropyThreshold;
+        return $entropy >= $config->entropyThreshold;
     }
 
     /**
-     * Calculate Shannon entropy of a string.
+     * Calculate Shannon entropy of a string with caching.
      */
     protected function calculateShannonEntropy(string $string): float
     {
-        $length = strlen($string);
-        if ($length <= 1) {
-            return 0.0;
+        // Check cache first
+        if (isset($this->entropyCache[$string])) {
+            return $this->entropyCache[$string];
         }
 
-        // Count character frequencies
+        $length = strlen($string);
+        if ($length <= 1) {
+            return $this->entropyCache[$string] = 0.0;
+        }
+
+        // Count character frequencies and calculate entropy in a single loop
         $frequencies = [];
         for ($i = 0; $i < $length; $i++) {
             $char = $string[$i];
-            $frequencies[$char] = isset($frequencies[$char]) ? $frequencies[$char] + 1 : 1;
+            $frequencies[$char] = ($frequencies[$char] ?? 0) + 1;
         }
 
         // Calculate entropy
@@ -372,57 +405,26 @@ class LogRedactor
             }
         }
 
+        // Cache the result
+        $this->entropyCache[$string] = $entropy;
+
         return $entropy;
     }
 
     /**
      * Check if a string matches common patterns that shouldn't be redacted despite high entropy.
      */
-    protected function isCommonPattern(string $string): bool
+    protected function isCommonPattern(string $string, RedactorConfig $config): bool
     {
-        // Skip URLs
-        if (preg_match('/^https?:\/\//', $string)) {
-            return true;
-        }
+        foreach ($config->entropyExclusionPatterns as $pattern) {
+            if (preg_match($pattern, $string)) {
+                // Special case: hex strings need additional length check
+                if ($pattern === '/^[0-9a-f]+$/i' && strlen($string) >= 32) {
+                    continue; // Long hex strings might be sensitive (like SHA256)
+                }
 
-        // Skip file paths
-        if (preg_match('/^[\/\\\\].+[\/\\\\]/', $string)) {
-            return true;
-        }
-
-        // Skip common date/time formats
-        if (preg_match('/^\d{4}-\d{2}-\d{2}/', $string)) {
-            return true;
-        }
-
-        // Skip UUIDs (they have high entropy but are often safe)
-        if (preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $string)) {
-            return true;
-        }
-
-        // Skip hexadecimal hashes that are too short to be sensitive
-        if (preg_match('/^[0-9a-f]+$/i', $string) && strlen($string) < 32) {
-            return true;
-        }
-
-        // Skip strings that are mostly whitespace
-        if (preg_match('/^\s*$/', $string)) {
-            return true;
-        }
-
-        // Skip user agents (common browser/application identifiers)
-        if (preg_match('/^Mozilla\/\d\.\d|^[A-Za-z]+\/\d+\.\d+|AppleWebKit|Chrome|Safari|Firefox|Opera|Edge/', $string)) {
-            return true;
-        }
-
-        // Skip IP addresses (IPv4 and simple IPv6)
-        if (preg_match('/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/', $string)) {
-            return true;
-        }
-
-        // Skip MAC addresses
-        if (preg_match('/^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i', $string)) {
-            return true;
+                return true;
+            }
         }
 
         return false;

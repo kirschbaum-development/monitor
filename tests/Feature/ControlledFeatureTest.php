@@ -310,8 +310,7 @@ describe('Controlled Framework Integration', function () {
 
     describe('Custom Logger Integration', function () {
         it('uses custom logger when specified', function () {
-            $result = Controlled::for('custom-logger-test')
-                ->from('CustomOrigin')
+            $result = Controlled::for('custom-logger-test', 'CustomOrigin')
                 ->run(fn () => 'custom-logger-success');
 
             expect($result)->toBe('custom-logger-success');
@@ -343,11 +342,10 @@ describe('Controlled Framework Integration', function () {
 
     describe('Full Integration Chaining', function () {
         it('supports fluent interface chaining with execution', function () {
-            $result = Controlled::for('chain-test')
+            $result = Controlled::for('chain-test', 'ChainTest')
                 ->overrideContext(['initial' => 'data'])
                 ->addContext(['additional' => 'context'])
                 ->overrideTraceId('custom-trace')
-                ->from('ChainTest')
                 ->run(fn () => 'chain-success');
 
             expect($result)->toBe('chain-success');

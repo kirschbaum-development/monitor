@@ -6,7 +6,6 @@ namespace Tests\Feature;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
-use InvalidArgumentException;
 use Kirschbaum\Monitor\CircuitBreaker;
 use Kirschbaum\Monitor\Facades\Monitor;
 use Mockery;
@@ -31,13 +30,13 @@ describe('Monitor Facade Integration with Controlled', function () {
         expect($result)->toBe('named-success');
     });
 
-    it('creates controlled block without name through facade', function () {
-        $controlled = Monitor::controlled();
+    it('creates controlled block with immediate name through facade', function () {
+        $controlled = Monitor::controlled('immediate-name');
 
         expect($controlled)->toBeInstanceOf(\Kirschbaum\Monitor\Controlled::class);
 
-        $result = $controlled->for('delayed-name')->run(fn () => 'delayed-success');
-        expect($result)->toBe('delayed-success');
+        $result = $controlled->run(fn () => 'immediate-success');
+        expect($result)->toBe('immediate-success');
     });
 
     it('integrates with circuit breaker through facade', function () {
@@ -66,11 +65,9 @@ describe('Monitor Facade Integration with Controlled', function () {
     });
 
     it('chains multiple configuration methods through facade', function () {
-        $result = Monitor::controlled('full-chain-test')
+        $result = Monitor::controlled('full-chain-test', 'IntegrationTest')
             ->overrideContext(['feature' => 'integration'])
             ->addContext(['test' => 'comprehensive'])
-
-            ->from('IntegrationTest')
             ->run(fn () => 'full-chain-success');
 
         expect($result)->toBe('full-chain-success');
@@ -123,17 +120,12 @@ describe('Monitor Facade Integration with Controlled', function () {
     });
 
     it('works with custom logger through facade', function () {
-        $result = Monitor::controlled('custom-logger-integration')
-            ->from('CustomIntegrationOrigin')
+        $result = Monitor::controlled('custom-logger-integration', 'CustomIntegrationOrigin')
             ->run(fn () => 'custom-logger-success');
 
         expect($result)->toBe('custom-logger-success');
     });
 
-    it('throws exception for missing name through facade', function () {
-        expect(fn () => Monitor::controlled()->run(fn () => 'should-fail'))
-            ->toThrow(InvalidArgumentException::class, 'Controlled block name is required');
-    });
 });
 
 describe('Monitor with Origin Integration', function () {
@@ -146,18 +138,14 @@ describe('Monitor with Origin Integration', function () {
             }
         };
 
-        $result = Monitor::from($originInstance)
-            ->controlled()
-            ->for('origin-test')
+        $result = Monitor::controlled('origin-test', $originInstance)
             ->run(fn () => 'origin-success');
 
         expect($result)->toBe('origin-success');
     });
 
     it('preserves origin through controlled block chain', function () {
-        $result = Monitor::from('StringOrigin')
-            ->controlled()
-            ->for('string-origin-test')
+        $result = Monitor::controlled('string-origin-test', 'StringOrigin')
             ->overrideContext(['test' => 'origin-preservation'])
             ->run(fn () => 'origin-chain-success');
 

@@ -110,13 +110,15 @@ class StripePaymentService
 
 **What it does:** Monitors critical operations with automatic start/end logging, exception-specific handling, DB transactions, circuit breakers, and true escalation for uncaught exceptions.
 
+**Note:** The second parameter `$origin` (usually `$this`) is optional and automatically provides origin context to the structured logger used by the controlled block, eliminating the need for a separate `->from()` call.
+
 #### **Factory & Execution**
 
 ```php
 use Kirschbaum\Monitor\Facades\Monitor;
 
 // Create and execute controlled block
-$result = Monitor::controlled('payment_processing')
+$result = Monitor::controlled('payment_processing', $this)
     ->run(function() {
         return processPayment($data);
     });
@@ -128,50 +130,54 @@ $result = Monitor::controlled('payment_processing')
 /*
  * Adds additional context to the structured logger.
  */
-->addContext([
-    'transaction_id' => 'txn_456',
-    'gateway' => 'stripe'
-]);
+Monitor::controlled('payment_processing', $this)
+    ->addContext([
+        'transaction_id' => 'txn_456',
+        'gateway' => 'stripe'
+    ]);
 
 /*
  * Will completely replace structured logger context.
  * ⚠️ Not recommended unless you have a good reason to do so.
  */
-->overrideContext([
-    'user_id' => 123,
-    'operation' => 'payment',
-    'amount' => 99.99
-]);
+Monitor::controlled('payment_processing', $this)
+    ->overrideContext([
+        'user_id' => 123,
+        'operation' => 'payment',
+        'amount' => 99.99
+    ]);
 ```
 
 #### **Exception Handling**
 
 **Exception-Specific Handlers (`catching`):**
 ```php
-->catching([
-    DatabaseException::class => function($exception, $meta) {
-        $cachedData = ExampleModel::getCachedData();
-        return $cachedData; // Recovery value
-    },
-    NetworkException::class => function($exception, $meta) {
-        $this->exampleRetryLater($meta);
-        // No return = just handle, don't recover
-    },
-    PaymentException::class => function($exception, $meta) {
-        $this->exampleNotifyFinanceTeam($exception, $meta);
-        throw $exception; // Re-throw if needed
-    },
-    // Other exception types remain uncaught.
-])
+Monitor::controlled('payment_processing', $this)
+    ->catching([
+        DatabaseException::class => function($exception, $meta) {
+            $cachedData = ExampleModel::getCachedData();
+            return $cachedData; // Recovery value
+        },
+        NetworkException::class => function($exception, $meta) {
+            $this->exampleRetryLater($meta);
+            // No return = just handle, don't recover
+        },
+        PaymentException::class => function($exception, $meta) {
+            $this->exampleNotifyFinanceTeam($exception, $meta);
+            throw $exception; // Re-throw if needed
+        },
+        // Other exception types remain uncaught.
+    ])
 ```
 
 **Uncaught Exception Handling (`onUncaughtException`):**
 ```php
-->onUncaughtException(function($exception, $meta) {
-    // Example actions, the exception will remain uncaught
-    $this->alertOpsTeam($exception, $meta);
-    $this->sendToErrorTracking($exception);
-})
+Monitor::controlled('payment_processing', $this)
+    ->onUncaughtException(function($exception, $meta) {
+        // Example actions, the exception will remain uncaught
+        $this->alertOpsTeam($exception, $meta);
+        $this->sendToErrorTracking($exception);
+    })
 ```
 
 **Key Behavior:**
@@ -182,16 +188,63 @@ $result = Monitor::controlled('payment_processing')
 
 #### **Circuit Breaker & Database Protection**
 
+**What are Circuit Breakers?**
+Circuit breakers prevent cascading failures by temporarily stopping requests to a failing service, allowing it time to recover. They automatically "open" after a threshold of failures and "close" once the service is healthy again, protecting your application from wasting resources on operations likely to fail.
+
 ```php
-->withCircuitBreaker('payment_gateway', 3, 60) // 3 failures, 60s timeout
-->withDatabaseTransaction(2, [DeadlockException::class], [ValidationException::class])
+Monitor::controlled('payment_processing', $this)
+    ->withCircuitBreaker('payment_gateway', 3, 60) // 3 failures, 60s timeout
+    ->withDatabaseTransaction(2, [DeadlockException::class], [ValidationException::class])
 ```
+
+**Circuit Breaker HTTP Middleware**
+
+You can also protect entire routes or route groups using the `CheckCircuitBreakers` middleware:
+
+```php
+// bootstrap/app.php or register as route middleware
+->withMiddleware(function (Middleware $middleware) {
+    $middleware->alias([
+        'circuit' => \Kirschbaum\Monitor\Http\Middleware\CheckCircuitBreakers::class,
+    ]);
+})
+
+// In your routes
+Route::middleware(['circuit:payment_gateway,external_api'])
+    ->group(function () {
+        Route::post('/payments', [PaymentController::class, 'store']);
+        Route::get('/external-data', [DataController::class, 'fetch']);
+    });
+
+// Or on individual routes
+Route::get('/api/data')
+    ->middleware('circuit:slow_service')
+    ->name('data.fetch');
+```
+
+**Circuit Breaker Middleware Features:**
+- **Multiple Breakers**: Check multiple circuit breakers with `circuit:breaker1,breaker2,breaker3`
+- **Graceful Degradation**: Returns HTTP 503 (Service Unavailable) when circuit is open
+- **Standard Headers**: Includes `Retry-After`, `X-Circuit-Breaker`, and `X-Circuit-Breaker-Status` headers
+- **Jitter Protection**: Built-in randomized retry delays prevent thundering herd effects
+- **Auto-Recovery**: Circuits automatically close when services recover
+
+**Response Headers When Circuit is Open:**
+```
+HTTP/1.1 503 Service Unavailable
+Retry-After: 45
+X-Circuit-Breaker: payment_gateway
+X-Circuit-Breaker-Status: open
+```
+
+The `Retry-After` header includes intelligent jitter - instead of all clients retrying at the exact same time, it provides a random delay between 0 and the remaining decay time, preventing overwhelming the recovering service.
 
 #### **Tracing & Logging**
 
 ```php
-->overrideTraceId('custom-trace-12345')
-->from('PaymentService') // Custom logger origin
+Monitor::controlled('payment_processing', $this)
+    ->overrideTraceId('custom-trace-12345')
+    // Origin is automatically set from the second parameter ($this)
 ```
 
 #### **Complete Example**
@@ -225,7 +278,7 @@ class PaymentService
 }
 ```
 
-#### **📊 What it logs:**
+#### **What it logs:**
 
 **Success:**
 ```json
@@ -246,11 +299,11 @@ class PaymentService
 {"message": "[PaymentProcessor] UNCAUGHT", "exception": "RuntimeException", "uncaught": true, "duration_ms": 300}
 ```
 
-#### **🎯 API Reference**
+#### **API Reference**
 
 | Method | Purpose | Returns |
 |--------|---------|---------|
-| `Controlled::for(string $name)` | Create controlled block | `self` |
+| `Monitor::controlled(string $name, string\|object $origin = null)` | Create controlled block with optional origin | `self` |
 | `->overrideContext(array $context)` | Replace entire context | `self` |
 | `->addContext(array $context)` | Merge additional context | `self` |
 | `->catching(array $handlers)` | Define exception-specific handlers | `self` |
@@ -258,7 +311,6 @@ class PaymentService
 | `->withCircuitBreaker(string $name, int $threshold, int $decay)` | Configure circuit breaker | `self` |
 | `->withDatabaseTransaction(int $retries, array $only, array $exclude)` | Wrap in DB transaction with retry | `self` |
 | `->overrideTraceId(string $traceId)` | Set custom trace ID | `self` |
-| `->from(string\|object $origin)` | Set logger origin | `self` |
 | `->run(Closure $callback)` | Execute the controlled block | `mixed` |
 
 ### Distributed Tracing

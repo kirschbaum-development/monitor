@@ -419,6 +419,37 @@ return [
 
         /*
         |----------------------------------------------------------------------
+        | Track Redacted Keys
+        |----------------------------------------------------------------------
+        |
+        | When enabled, adds a '_redacted_keys' array to the context listing
+        | which keys were redacted. Useful for debugging and auditing.
+        | Only applies when mark_redacted is also enabled.
+        |
+        */
+
+        'track_redacted_keys' => env('MONITOR_LOG_REDACTOR_TRACK_KEYS', false),
+
+        /*
+        |----------------------------------------------------------------------
+        | Non-Redactable Object Behavior
+        |----------------------------------------------------------------------
+        |
+        | Defines how to handle objects that cannot be safely redacted due to
+        | circular references, resources, or other serialization issues.
+        |
+        | Available options:
+        |   - 'preserve': Return the original object unchanged (default, safest)
+        |   - 'remove': Remove the object entirely from context
+        |   - 'empty_array': Replace with an empty array []
+        |   - 'redact': Replace with redaction placeholder text
+        |
+        */
+
+        'non_redactable_object_behavior' => env('MONITOR_LOG_REDACTOR_OBJECT_BEHAVIOR', 'preserve'),
+
+        /*
+        |----------------------------------------------------------------------
         | Maximum Value Length
         |----------------------------------------------------------------------
         |
@@ -431,7 +462,7 @@ return [
         |
         */
 
-        'max_value_length' => env('MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH', 20000),
+        'max_value_length' => env('MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH', 5000),
 
         /*
         |----------------------------------------------------------------------
@@ -494,6 +525,29 @@ return [
             | 30: Higher performance, may miss some short tokens
             */
             'min_length' => env('MONITOR_LOG_REDACTOR_SHANNON_MIN_LENGTH', 25),
+
+            /*
+            |----------------------------------------------------------------------
+            | Exclusion Patterns
+            |----------------------------------------------------------------------
+            |
+            | Regex patterns for strings that should NOT be redacted despite having
+            | high entropy. These patterns identify common safe formats like URLs,
+            | file paths, UUIDs, etc. that naturally have high entropy but are not
+            | sensitive data.
+            |
+            */
+            'exclusion_patterns' => [
+                '/^https?:\/\//',                                                           // URLs
+                '/^[\/\\\\].+[\/\\\\]/',                                                   // File paths
+                '/^\d{4}-\d{2}-\d{2}/',                                                    // Date formats
+                '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',     // UUIDs
+                '/^[0-9a-f]+$/i',                                                          // Hex strings (short ones < 32 chars)
+                '/^\s*$/',                                                                 // Whitespace strings
+                '/^Mozilla\/\d\.\d|^[A-Za-z]+\/\d+\.\d+|AppleWebKit|Chrome|Safari|Firefox|Opera|Edge/', // User agents
+                '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/',                                // IPv4 addresses
+                '/^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i', // MAC addresses
+            ],
         ],
     ],
 ];
