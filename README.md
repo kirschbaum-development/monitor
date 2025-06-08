@@ -217,7 +217,7 @@ class PaymentService
                     return ['status' => 'insufficient_funds'];
                 }
             ])
-            ->onUncaughtException(fn($e, $meta) => Monitor::escalate($e, $meta))
+            ->onUncaughtException(fn($e, $meta) => SomeEscalationLogic::run($e, $meta))
             ->run(function() use ($amount) {
                 return $this->chargeCard($amount);
             });
