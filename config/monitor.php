@@ -253,17 +253,16 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Log Redactor Configuration
+    | Redactor Configuration
     |--------------------------------------------------------------------------
     |
-    | Generalized redaction engine for scrubbing logs of sensitive or noisy
-    | values that shouldn't be persisted. This includes PII, API tokens,
-    | auth headers, large blobs, internal references, etc. Can be used for
-    | compliance, debugging hygiene, and reducing noise in critical logs.
+    | Configuration for log redaction using Kirschbaum Redactor
+    | (https://github.com/kirschbaum-development/redactor) for scrubbing
+    | logs of sensitive or noisy values that shouldn't be persisted.
     |
     */
 
-    'log_redactor' => [
+    'redactor' => [
 
         /*
         |----------------------------------------------------------------------
@@ -275,279 +274,18 @@ return [
         |
         */
 
-        'enabled' => env('MONITOR_LOG_REDACTOR_ENABLED', true),
+        'enabled' => env('MONITOR_REDACTOR_ENABLED', true),
 
         /*
         |----------------------------------------------------------------------
-        | Safe Keys
+        | Redactor Profile
         |----------------------------------------------------------------------
         |
-        | Keys that should NEVER be redacted (case-insensitive match).
-        | These keys will always show their values unredacted, regardless
-        | of other redaction rules. Useful for identifiers and timestamps.
+        | The redactor profile to use. This corresponds to profiles configured
+        | in the Kirschbaum Redactor package.
         |
         */
 
-        'safe_keys' => [
-            // Core identifiers (high frequency)
-            'id',
-            'uuid',
-            'user_id',
-            'order_id',
-            'session_id',
-            'request_id',
-
-            // Timestamps & metadata (high frequency)
-            'created_at',
-            'updated_at',
-            'timestamp',
-
-            // Monitor framework keys (highest frequency)
-            'level',
-            'event',
-            'message',
-            'trace_id',
-            'channel',
-            'duration_ms',
-            'memory_mb',
-
-            // Controlled block keys
-            'controlled_block',
-            'controlled_block_id',
-            'attempt',
-            'status',
-            'breaker_tripped',
-            'uncaught',
-
-            'title',
-            'type',
-            'method',
-            'path',
-            'url',
-            'ip',
-            'user_agent',
-            'operation',
-            'action',
-            'source',
-            'target',
-            'version',
-            'platform',
-            'environment',
-        ],
-
-        /*
-        |----------------------------------------------------------------------
-        | Blocked Keys
-        |----------------------------------------------------------------------
-        |
-        | Keys that should ALWAYS be redacted (case-insensitive match).
-        | These keys will always be redacted, even if they would normally
-        | be considered safe. Takes priority over safe_keys.
-        |
-        */
-
-        'blocked_keys' => [
-            'password',
-            'secret',
-            'token',
-            'api_key',
-            'authorization',
-            'auth_token',
-            'bearer_token',
-            'access_token',
-            'refresh_token',
-            'session_id',
-            'private_key',
-            'client_secret',
-            'full_name',
-            'first_name',
-            'last_name',
-            'email',
-            'ssn',
-            'ein',
-            'social_security_number',
-            'tax_id',
-            'credit_card',
-            'card_number',
-            'cvv',
-            'pin',
-        ],
-
-        /*
-        |----------------------------------------------------------------------
-        | Regex Patterns
-        |----------------------------------------------------------------------
-        |
-        | Regex-based redaction patterns that run against string values.
-        | These patterns will match and redact specific sensitive data formats
-        | regardless of the key name.
-        |
-        */
-
-        'patterns' => [
-            // Ordered by frequency and performance (most common/fastest first)
-            'email' => '/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/',
-            'phone_simple' => '/\b\d{3}[.-]?\d{3}[.-]?\d{4}\b/',
-            'ssn' => '/\b\d{3}-?\d{2}-?\d{4}\b/',
-            'credit_card' => '/\b(?:\d[ -]*?){13,16}\b/',
-            'url_with_auth' => '/https?:\/\/[^:\/\s]+:[^@\/\s]+@[^\s]+/',
-        ],
-
-        /*
-        |----------------------------------------------------------------------
-        | Replacement Value
-        |----------------------------------------------------------------------
-        |
-        | The value to use when replacing sensitive data. This will be used
-        | for both key-based and pattern-based redactions.
-        |
-        */
-
-        'replacement' => env('MONITOR_LOG_REDACTOR_REPLACEMENT', '[REDACTED]'),
-
-        /*
-        |----------------------------------------------------------------------
-        | Mark Redacted
-        |----------------------------------------------------------------------
-        |
-        | When enabled, adds a '_redacted' flag to the context when any
-        | redaction occurs. This helps with debugging and compliance auditing.
-        |
-        */
-
-        'mark_redacted' => env('MONITOR_LOG_REDACTOR_MARK_REDACTED', true),
-
-        /*
-        |----------------------------------------------------------------------
-        | Track Redacted Keys
-        |----------------------------------------------------------------------
-        |
-        | When enabled, adds a '_redacted_keys' array to the context listing
-        | which keys were redacted. Useful for debugging and auditing.
-        | Only applies when mark_redacted is also enabled.
-        |
-        */
-
-        'track_redacted_keys' => env('MONITOR_LOG_REDACTOR_TRACK_KEYS', false),
-
-        /*
-        |----------------------------------------------------------------------
-        | Non-Redactable Object Behavior
-        |----------------------------------------------------------------------
-        |
-        | Defines how to handle objects that cannot be safely redacted due to
-        | circular references, resources, or other serialization issues.
-        |
-        | Available options:
-        |   - 'preserve': Return the original object unchanged (default, safest)
-        |   - 'remove': Remove the object entirely from context
-        |   - 'empty_array': Replace with an empty array []
-        |   - 'redact': Replace with redaction placeholder text
-        |
-        */
-
-        'non_redactable_object_behavior' => env('MONITOR_LOG_REDACTOR_OBJECT_BEHAVIOR', 'preserve'),
-
-        /*
-        |----------------------------------------------------------------------
-        | Maximum Value Length
-        |----------------------------------------------------------------------
-        |
-        | Maximum length for string values before they are considered "large
-        | blobs" and get redacted. Set to null to disable length-based redaction.
-        | This helps prevent large payloads from cluttering logs.
-        | 20000: Performance optimized (allows larger strings, less truncation overhead)
-        | 10000: Balanced approach
-        | 5000: More aggressive truncation (better for storage-constrained environments)
-        |
-        */
-
-        'max_value_length' => env('MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH', 5000),
-
-        /*
-        |----------------------------------------------------------------------
-        | Redact Large Objects
-        |----------------------------------------------------------------------
-        |
-        | When enabled, arrays or objects with more than the specified number
-        | of items will be redacted. This helps prevent large data structures
-        | from overwhelming log storage.
-        |
-        */
-
-        'redact_large_objects' => env('MONITOR_LOG_REDACTOR_LARGE_OBJECTS', true),
-
-        /*
-        |----------------------------------------------------------------------
-        | Maximum Object Size
-        |----------------------------------------------------------------------
-        |
-        | Maximum number of items in an array or object before it gets redacted.
-        | Only applies when redact_large_objects is enabled.
-        | 100: Performance optimized (allows larger objects, less redaction overhead)
-        | 50: Balanced approach
-        | 25: More aggressive redaction (better for memory-constrained environments)
-        |
-        */
-
-        'max_object_size' => env('MONITOR_LOG_REDACTOR_MAX_OBJECT_SIZE', 100),
-
-        /*
-        |----------------------------------------------------------------------
-        | Shannon Entropy Configuration
-        |----------------------------------------------------------------------
-        |
-        | Shannon entropy analysis for detecting high-entropy strings like
-        | API keys, tokens, and secrets that might not match specific patterns.
-        | This is used as a last resort after safe_keys, blocked_keys, and
-        | regex patterns have been checked.
-        |
-        */
-
-        'shannon_entropy' => [
-            /*
-            | Enable Shannon entropy analysis for detecting potential secrets
-            */
-            'enabled' => env('MONITOR_LOG_REDACTOR_SHANNON_ENABLED', true),
-
-            /*
-            | Entropy threshold (0.0 - ~8.0). Higher values = more selective.
-            | 4.8: Balanced performance/security (recommended for production)
-            | 4.5: More sensitive detection (better security, more CPU)
-            | 5.0: Higher performance (fewer false positives, less CPU)
-            */
-            'threshold' => env('MONITOR_LOG_REDACTOR_SHANNON_THRESHOLD', 4.8),
-
-            /*
-            | Minimum string length to analyze. Shorter strings are ignored.
-            | 25: Performance optimized (recommended for high-volume logging)
-            | 20: More sensitive detection
-            | 30: Higher performance, may miss some short tokens
-            */
-            'min_length' => env('MONITOR_LOG_REDACTOR_SHANNON_MIN_LENGTH', 25),
-
-            /*
-            |----------------------------------------------------------------------
-            | Exclusion Patterns
-            |----------------------------------------------------------------------
-            |
-            | Regex patterns for strings that should NOT be redacted despite having
-            | high entropy. These patterns identify common safe formats like URLs,
-            | file paths, UUIDs, etc. that naturally have high entropy but are not
-            | sensitive data.
-            |
-            */
-            'exclusion_patterns' => [
-                '/^https?:\/\//',                                                           // URLs
-                '/^[\/\\\\].+[\/\\\\]/',                                                   // File paths
-                '/^\d{4}-\d{2}-\d{2}/',                                                    // Date formats
-                '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i',     // UUIDs
-                '/^[0-9a-f]+$/i',                                                          // Hex strings (short ones < 32 chars)
-                '/^\s*$/',                                                                 // Whitespace strings
-                '/^Mozilla\/\d\.\d|^[A-Za-z]+\/\d+\.\d+|AppleWebKit|Chrome|Safari|Firefox|Opera|Edge/', // User agents
-                '/^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$/',                                // IPv4 addresses
-                '/^[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}:[0-9a-f]{2}$/i', // MAC addresses
-            ],
-        ],
+        'redactor_profile' => env('MONITOR_REDACTOR_PROFILE', 'default'),
     ],
 ];

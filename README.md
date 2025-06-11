@@ -414,89 +414,30 @@ class DataProcessor
 
 ### Log Redaction
 
-**What it does:** Automatically scrubs sensitive data from log context using a priority-based system to ensure compliance and security while preserving important data.
+**What it does:** Automatically scrubs sensitive data from log context using [Kirschbaum Redactor](https://github.com/kirschbaum-development/redactor) to ensure compliance and security while preserving important data.
 
-**Priority System:**
-1. **Safe Keys** (highest) - Never redacted, always shown
-2. **Blocked Keys** - Always redacted, regardless of content  
-3. **Regex Patterns** - Redacts values matching specific patterns
-4. **Shannon Entropy** (lowest) - Detects high-entropy secrets like API keys
-
-**Configuration:** Redaction options in `config/monitor.php`:
+**Configuration:** Simple redaction configuration in `config/monitor.php`:
 
 ```php
-'log_redactor' => [
+'redactor' => [
     'enabled' => true,
-    
-    // Priority 1: Keys that should NEVER be redacted
-    'safe_keys' => [
-        'id', 'uuid', 'created_at', 'updated_at', 'timestamp',
-        'user_id', 'order_id', 'status', 'type', 'name'
-    ],
-    
-    // Priority 2: Keys that should ALWAYS be redacted
-    'blocked_keys' => [
-        'password', 'token', 'api_key', 'authorization', 'secret',
-        'ssn', 'ein', 'credit_card', 'private_key', 'email'
-    ],
-    
-    // Priority 3: Regex patterns for value-based detection
-    'patterns' => [
-        'email' => '/[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+/',
-        'credit_card' => '/\b(?:\d[ -]*?){13,16}\b/',
-        'ssn' => '/\b\d{3}-?\d{2}-?\d{4}\b/',
-        'phone' => '/\b\d{3}[.-]?\d{3}[.-]?\d{4}\b/',
-    ],
-    
-    // Priority 4: Shannon entropy detection for unknown secrets
-    'shannon_entropy' => [
-        'enabled' => true,
-        'threshold' => 4.5,    // Entropy threshold (0-8 scale)
-        'min_length' => 20,    // Minimum string length to analyze
-    ],
-    
-    'replacement' => '[REDACTED]',
-    'mark_redacted' => true,         // Add "_redacted": true marker
-    'max_value_length' => 10000,     // Truncate large values
-    'redact_large_objects' => true,  // Limit large arrays/objects
-    'max_object_size' => 50,
+    'redactor_profile' => 'default', // Uses Kirschbaum Redactor profiles
 ],
 ```
 
-**How it works:**
+**Usage:** Redaction is automatically applied to all Monitor log context:
+
 ```php
 Monitor::from($this)->info('User data', [
-    // Safe keys - never redacted (Priority 1)
-    'id' => 123,                      // → 123 (safe key)
-    'user_id' => 456,                 // → 456 (safe key)
-    'created_at' => '2024-01-15',     // → '2024-01-15' (safe key)
-    
-    // Blocked keys - always redacted (Priority 2)  
-    'password' => 'secret123',        // → '[REDACTED]' (blocked key)
-    'email' => 'user@example.com',    // → '[REDACTED]' (blocked key wins over pattern)
-    
-    // Pattern matching - value-based (Priority 3)
-    'contact' => 'user@example.com',  // → '[REDACTED]' (email pattern)
-    'card' => '4111-1111-1111-1111',  // → '[REDACTED]' (credit card pattern)
-    
-    // Shannon entropy - high entropy secrets (Priority 4)
-    'api_token' => 'sk-1234567890abcdef...', // → '[REDACTED]' (high entropy)
-    'jwt' => 'eyJ0eXAiOiJKV1QiLCJhbGc...', // → '[REDACTED]' (high entropy)
-    
-    // Normal data - unchanged
-    'name' => 'John Doe',             // → 'John Doe' (low entropy, not blocked)
-    'description' => 'A simple task', // → 'A simple task' (normal text)
+    'id' => 123,
+    'email' => 'user@example.com',    // → '[REDACTED]' based on profile rules
+    'password' => 'secret123',        // → '[REDACTED]' based on profile rules
+    'api_token' => 'sk-1234567890abcdef...', // → '[REDACTED]' based on profile rules
+    'name' => 'John Doe',             // → 'John Doe' (if allowed by profile)
 ]);
-
-// Result includes redaction marker when data was modified
-// { ..., "_redacted": true }
 ```
 
-**Shannon Entropy Detection:**
-- Automatically detects API keys, JWT tokens, and other high-entropy secrets
-- Ignores common patterns like URLs, UUIDs, dates, and file paths
-- Configurable threshold and minimum length requirements
-- Prevents false positives on normal text and structured data
+For detailed redaction configuration, rules, patterns, and profiles, see the [Kirschbaum Redactor documentation](https://github.com/kirschbaum-development/redactor).
 
 ## Configuration
 
@@ -517,17 +458,8 @@ MONITOR_CONSOLE_AUTO_TRACE_ENABLED=true
 MONITOR_TRACE_HEADER=X-Trace-Id
 
 # Log redaction
-MONITOR_LOG_REDACTOR_ENABLED=true
-MONITOR_LOG_REDACTOR_REPLACEMENT='[REDACTED]'
-MONITOR_LOG_REDACTOR_MARK_REDACTED=true
-MONITOR_LOG_REDACTOR_MAX_VALUE_LENGTH=10000
-MONITOR_LOG_REDACTOR_LARGE_OBJECTS=true
-MONITOR_LOG_REDACTOR_MAX_OBJECT_SIZE=50
-
-# Shannon entropy detection
-MONITOR_LOG_REDACTOR_SHANNON_ENABLED=true
-MONITOR_LOG_REDACTOR_SHANNON_THRESHOLD=4.5
-MONITOR_LOG_REDACTOR_SHANNON_MIN_LENGTH=20
+MONITOR_REDACTOR_ENABLED=true
+MONITOR_REDACTOR_PROFILE=default
 ```
 
 **Logging Channel:** Configure a dedicated Monitor logging channel:
