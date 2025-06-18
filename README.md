@@ -7,7 +7,9 @@
 ![Static Analysis](https://github.com/kirschbaum-development/monitor/actions/workflows/static-analysis.yml/badge.svg)
 ![Code Style](https://github.com/kirschbaum-development/monitor/actions/workflows/style-check.yml/badge.svg)
 
-Laravel Monitor is an observability helper / toolkit for Laravel applications. .
+Laravel Monitor is an observability helper / toolkit for Laravel applications.
+
+> This package is active development and its API can change abruptly without any notice. Please reach out if you plan to use it in a production environment.
 
 ## Table of Contents
 
@@ -18,7 +20,10 @@ Laravel Monitor is an observability helper / toolkit for Laravel applications. .
   - [Distributed Tracing](#distributed-tracing)
   - [HTTP Middleware](#http-middleware)
   - [Performance Timing](#performance-timing)
+  - [Circuit Breaker Direct Access](#circuit-breaker-direct-access)
+  - [Log Redactor Direct Access](#log-redactor-direct-access)
   - [Log Redaction](#log-redaction)
+- [Complete API Reference](#complete-api-reference)
 - [Configuration](#configuration)
 - [Output Examples](#output-examples)
 - [Testing](#testing)
@@ -53,7 +58,7 @@ class UserController extends Controller
     public function login(LoginRequest $request)
     {
         // Automatic origin resolution from full namespace
-        Monitor::from($this)->info('User login attempt', [
+        Monitor::log($this)->info('User login attempt', [
             'email' => $request->email,
             'ip' => $request->ip()
         ]);
@@ -66,7 +71,7 @@ class StripePaymentService
     public function processPayment($amount)
     {
         // Origin automatically resolved to clean, readable format
-        Monitor::from($this)->info('Processing payment', [
+        Monitor::log($this)->info('Processing payment', [
             'amount' => $amount,
             'processor' => 'stripe'
         ]);
@@ -74,14 +79,14 @@ class StripePaymentService
 }
 ```
 
-**Note:** While you can override with `Monitor::from('CustomName')`, using `from($this)` is preferred as it automatically provides meaningful, consistent origin tracking from your actual class structure.
+**Note:** While you can override with `Monitor::log('CustomName')`, using `log($this)` is preferred as it automatically provides meaningful, consistent origin tracking from your actual class structure.
 
 **What it logs:**
 ```json
 {
     "level": "info",
-    "event": "Api:UserController:info",
-    "message": "[Api:UserController] User login attempt",
+    "event": "Monitor:Http:Controllers:Api:UserController:info",
+    "message": "[Monitor:Http:Controllers:Api:UserController] User login attempt",
     "trace_id": "9d2b4e8f-3a1c-4d5e-8f2a-1b3c4d5e6f7g",
     "context": {
         "email": "[REDACTED]",
@@ -93,24 +98,27 @@ class StripePaymentService
 }
 ```
 
+**Note:** The `event` field uses the raw origin name (after path replacers but before wrapper), while the `message` field uses the wrapped origin name for readability.
+
 **Configuration:** Origin path replacers, separators, and wrappers control how class names appear in logs:
 
 ```php
 // config/monitor.php
 'origin_path_replacers' => [
-    'App\\Http\\Controllers\\' => '',        // Remove controller namespace
-    'App\\Services\\Payment\\' => 'Pay\\',   // Shorten payment services
-    'App\\Services\\' => 'Svc\\',            // General service shortening
+    'App\\' => 'Monitor\\',                  // Default: Replace App\ with Monitor\
+    // 'App\\Http\\Controllers\\' => '',     // Example: Remove controller namespace
+    // 'App\\Services\\Payment\\' => 'Pay\\', // Example: Shorten payment services
+    // 'App\\Services\\' => 'Svc\\',         // Example: General service shortening
 ],
-'origin_separator' => ':',           // App\Http\Controllers\Api\UserController → Api:UserController  
-'origin_path_wrapper' => 'square',   // Api:UserController → [Api:UserController]
+'origin_separator' => ':',           // App\Http\Controllers\Api\UserController → Monitor:Http:Controllers:Api:UserController  
+'origin_path_wrapper' => 'square',   // Monitor:Http:Controllers:Api:UserController → [Monitor:Http:Controllers:Api:UserController]
 ```
 
 ### Controlled Execution Blocks
 
 **What it does:** Monitors critical operations with automatic start/end logging, exception-specific handling, DB transactions, circuit breakers, and true escalation for uncaught exceptions.
 
-**Note:** The second parameter `$origin` (usually `$this`) is optional and automatically provides origin context to the structured logger used by the controlled block, eliminating the need for a separate `->from()` call.
+**Note:** The second parameter `$origin` (usually `$this`) is optional and automatically provides origin context to the structured logger used by the controlled block, eliminating the need for a separate `->log()` call.
 
 #### **Factory & Execution**
 
@@ -282,21 +290,21 @@ class PaymentService
 
 **Success:**
 ```json
-{"message": "[PaymentProcessor] STARTED", "controlled_block": "payment_processing", "controlled_block_id": "01HK..."}
-{"message": "[PaymentProcessor] ENDED", "status": "ok", "duration_ms": 1250}
+{"message": "[Monitor:Services:PaymentService] STARTED", "controlled_block": "payment_processing", "controlled_block_id": "01HK..."}
+{"message": "[Monitor:Services:PaymentService] ENDED", "status": "ok", "duration_ms": 1250}
 ```
 
 **Caught Exception (Recovery):**
 ```json
-{"message": "[PaymentProcessor] STARTED", "controlled_block": "payment_processing"}
-{"message": "[PaymentProcessor] CAUGHT", "exception": "PaymentDeclinedException", "duration_ms": 500}
-{"message": "[PaymentProcessor] RECOVERED", "recovery_value": "array"}
+{"message": "[Monitor:Services:PaymentService] STARTED", "controlled_block": "payment_processing"}
+{"message": "[Monitor:Services:PaymentService] CAUGHT", "exception": "PaymentDeclinedException", "duration_ms": 500}
+{"message": "[Monitor:Services:PaymentService] RECOVERED", "recovery_value": "array"}
 ```
 
 **Uncaught Exception (Escalation):**
 ```json
-{"message": "[PaymentProcessor] STARTED", "controlled_block": "payment_processing"}
-{"message": "[PaymentProcessor] UNCAUGHT", "exception": "RuntimeException", "uncaught": true, "duration_ms": 300}
+{"message": "[Monitor:Services:PaymentService] STARTED", "controlled_block": "payment_processing"}
+{"message": "[Monitor:Services:PaymentService] UNCAUGHT", "exception": "RuntimeException", "uncaught": true, "duration_ms": 300}
 ```
 
 #### **API Reference**
@@ -327,7 +335,7 @@ class OrderController extends Controller
         // Start trace (typically via middleware)
         Monitor::trace()->start();
         
-        Monitor::from($this)->info('Processing order');
+        Monitor::log($this)->info('Processing order');
         
         // All subsequent operations share the same trace ID
         $this->paymentService->charge($amount);
@@ -342,7 +350,7 @@ class PaymentService
     public function charge($amount)
     {
         // Automatically includes trace ID from OrderController
-        Monitor::from($this)->info('Charging card', ['amount' => $amount]);
+        Monitor::log($this)->info('Charging card', ['amount' => $amount]);
     }
 }
 ```
@@ -350,11 +358,18 @@ class PaymentService
 **Trace Management:**
 ```php
 // Manual control
-Monitor::trace()->start();            // Generate new UUID
-Monitor::trace()->override($traceId); // Use specific ID
-Monitor::trace()->id();               // Get current ID
+Monitor::trace()->start();            // Generate new UUID (throws if already started)
+Monitor::trace()->override($traceId); // Use specific ID (overwrites existing)
+Monitor::trace()->pickup($traceId);   // Start if not started, optionally with specific ID
+Monitor::trace()->id();               // Get current ID (throws if not started)
 Monitor::trace()->hasStarted();       // Check if active
+Monitor::trace()->hasNotStarted();    // Check if not active
 ```
+
+**Key Differences:**
+- `start()` - Throws exception if trace already exists
+- `override()` - Always sets trace ID, replacing any existing one
+- `pickup()` - Safe method that starts only if not already started
 
 ### HTTP Middleware
 
@@ -403,7 +418,7 @@ class DataProcessor
         
         $elapsed = $timer->elapsed(); // Milliseconds
         
-        Monitor::from($this)->info('Processing complete', [
+        Monitor::log($this)->info('Processing complete', [
             'duration_ms' => $elapsed
         ]);
     }
@@ -411,6 +426,74 @@ class DataProcessor
 ```
 
 **Note:** All Monitor logging automatically includes `duration_ms` from service start.
+
+### Circuit Breaker Direct Access
+
+**What it does:** Provides direct access to circuit breaker state management for advanced use cases.
+
+```php
+use Kirschbaum\Monitor\Facades\Monitor;
+
+// Check circuit breaker state
+$isOpen = Monitor::breaker()->isOpen('payment_gateway');
+$state = Monitor::breaker()->getState('payment_gateway');
+
+// Manual state management
+Monitor::breaker()->recordFailure('api_service', 300); // Record failure with 300s decay
+Monitor::breaker()->recordSuccess('api_service');      // Record success (resets failures)
+Monitor::breaker()->reset('api_service');              // Force reset
+Monitor::breaker()->forceOpen('api_service');          // Force open state
+```
+
+**Usage in Custom Logic:**
+```php
+class ExternalApiService
+{
+    public function makeRequest()
+    {
+        if (Monitor::breaker()->isOpen('external_api')) {
+            return $this->getCachedResponse();
+        }
+        
+        try {
+            $response = $this->performApiCall();
+            Monitor::breaker()->recordSuccess('external_api');
+            return $response;
+        } catch (Exception $e) {
+            Monitor::breaker()->recordFailure('external_api', 120);
+            throw $e;
+        }
+    }
+}
+```
+
+### Log Redactor Direct Access
+
+**What it does:** Provides direct access to the redactor for custom redaction needs.
+
+```php
+use Kirschbaum\Monitor\Facades\Monitor;
+
+// Direct redaction using configured profile
+$redactedData = Monitor::redactor()->redact($sensitiveData);
+
+// Custom profile redaction
+$redactedData = Monitor::redactor()->redact($sensitiveData, 'strict');
+
+// Example usage
+class UserDataProcessor
+{
+    public function processUserData(array $userData)
+    {
+        // Redact before logging or storing
+        $safeData = Monitor::redactor()->redact($userData);
+        
+        Monitor::log($this)->info('Processing user data', $safeData);
+        
+        return $this->process($userData); // Use original for processing
+    }
+}
+```
 
 ### Log Redaction
 
@@ -428,7 +511,7 @@ class DataProcessor
 **Usage:** Redaction is automatically applied to all Monitor log context:
 
 ```php
-Monitor::from($this)->info('User data', [
+Monitor::log($this)->info('User data', [
     'id' => 123,
     'email' => 'user@example.com',    // → '[REDACTED]' based on profile rules
     'password' => 'secret123',        // → '[REDACTED]' based on profile rules
@@ -439,6 +522,35 @@ Monitor::from($this)->info('User data', [
 
 For detailed redaction configuration, rules, patterns, and profiles, see the [Kirschbaum Redactor documentation](https://github.com/kirschbaum-development/redactor).
 
+## Complete API Reference
+
+The Monitor facade provides access to all monitoring components:
+
+```php
+use Kirschbaum\Monitor\Facades\Monitor;
+
+// Structured logging
+Monitor::log($origin)->info('message', $context);
+
+// Controlled execution blocks
+Monitor::controlled($name, $origin)->run($callback);
+
+// Distributed tracing
+Monitor::trace()->start();
+Monitor::trace()->pickup($traceId);
+
+// Performance timing
+Monitor::time()->elapsed();
+
+// Circuit breaker management
+Monitor::breaker()->isOpen($name);
+
+// Log redaction
+Monitor::redactor()->redact($data);
+```
+
+All components integrate seamlessly and share trace context automatically when used together.
+
 ## Configuration
 
 **Environment Variables:**
@@ -446,16 +558,23 @@ For detailed redaction configuration, rules, patterns, and profiles, see the [Ki
 # Core settings
 MONITOR_ENABLED=true
 
-# Exception tracing
+# Exception tracing (applies to Controlled blocks only)
 MONITOR_TRACE_ENABLED=true
 MONITOR_TRACE_FULL_ON_DEBUG=true
+MONITOR_TRACE_FORCE_FULL_TRACE=false
 MONITOR_TRACE_MAX_LINES=15
 
 # Auto-trace console commands
 MONITOR_CONSOLE_AUTO_TRACE_ENABLED=true
+MONITOR_CONSOLE_AUTO_TRACE_ENABLE_IN_TESTING=false
 
 # HTTP trace header
 MONITOR_TRACE_HEADER=X-Trace-Id
+
+# Circuit breaker defaults
+MONITOR_CIRCUIT_BREAKER_DECAY_SECONDS=300
+MONITOR_CIRCUIT_BREAKER_RETRY_AFTER=300
+MONITOR_CIRCUIT_BREAKER_CORS_HEADERS=false
 
 # Log redaction
 MONITOR_REDACTOR_ENABLED=true
@@ -485,8 +604,8 @@ MONITOR_REDACTOR_PROFILE=default
 ```json
 {
     "level": "info",
-    "event": "UserController:info", 
-    "message": "[UserController] User login successful",
+    "event": "Monitor:Http:Controllers:UserController:info", 
+    "message": "[Monitor:Http:Controllers:UserController] User login successful",
     "trace_id": "9d2b4e8f-3a1c-4d5e-8f2a-1b3c4d5e6f7g",
     "context": {
         "user_id": 123,
@@ -501,14 +620,14 @@ MONITOR_REDACTOR_PROFILE=default
 
 **Controlled Block Execution:**
 ```json
-{"message": "[PaymentService] STARTED", "controlled_block": "payment_processing", "controlled_block_id": "01HK4...", "trace_id": "9d2b4e8f..."}
-{"message": "[PaymentService] ENDED", "controlled_block": "payment_processing", "status": "ok", "duration_ms": 1250}
+{"message": "[Monitor:Services:PaymentService] STARTED", "controlled_block": "payment_processing", "controlled_block_id": "01HK4...", "trace_id": "9d2b4e8f..."}
+{"message": "[Monitor:Services:PaymentService] ENDED", "controlled_block": "payment_processing", "status": "ok", "duration_ms": 1250}
 ```
 
 **Failure with Exception:**
 ```json
 {
-    "message": "[PaymentService] FAILED",
+    "message": "[Monitor:Services:PaymentService] UNCAUGHT",
     "controlled_block": "payment_processing", 
     "exception": {
         "class": "RuntimeException",
@@ -517,7 +636,8 @@ MONITOR_REDACTOR_PROFILE=default
         "line": 45,
         "trace": ["...", "..."]
     },
-    "duration_ms": 500
+    "duration_ms": 500,
+    "uncaught": true
 }
 ```
 
