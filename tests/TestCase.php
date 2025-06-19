@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Kirschbaum\Monitor\MonitorServiceProvider;
+use Kirschbaum\Redactor\RedactorServiceProvider;
 use Mockery\MockInterface;
 use Orchestra\Testbench\Concerns\WithWorkbench;
 use Orchestra\Testbench\TestCase as BaseTestCase;
@@ -20,6 +21,7 @@ class TestCase extends BaseTestCase
     {
         return [
             MonitorServiceProvider::class,
+            RedactorServiceProvider::class,
         ];
     }
 
