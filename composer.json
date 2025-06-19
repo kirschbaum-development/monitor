@@ -24,12 +24,6 @@
             "email": "belisar.hoxholli@gmail.com"
         }
     ],
-    "repositories": [
-        {
-            "type": "vcs",
-            "url": "https://github.com/kirschbaum-development/redactor"
-        }
-    ],
     "require-dev": {
         "pestphp/pest": "^3.8",
         "laravel/pint": "^1.22",
@@ -47,7 +41,7 @@
         "illuminate/support": "^11.9|^12.0",
         "spatie/laravel-package-tools": "^1.16",
         "php": "^8.3|^8.4",
-        "kirschbaum-development/redactor": "dev-main"
+        "kirschbaum-development/redactor": "^0.1.0"
     },
     "extra": {
         "laravel": {
