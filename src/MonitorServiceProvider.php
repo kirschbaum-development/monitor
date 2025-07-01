@@ -19,7 +19,7 @@ class MonitorServiceProvider extends ServiceProvider
         $this->app->singleton(CircuitBreaker::class, fn () => new CircuitBreaker);
         $this->app->singleton(ControlledContext::class, fn () => new ControlledContext);
 
-        $this->mergeLoggingChannelsFrom(__DIR__.'/../config/logging-monitor.php', 'logging');
+        // Remove automatic logging channel merging - users should configure their own channels
     }
 
     public function boot(): void
@@ -44,17 +44,5 @@ class MonitorServiceProvider extends ServiceProvider
         if ($shouldAutoTrace) {
             app(Trace::class)->start();
         }
-    }
-
-    protected function mergeLoggingChannelsFrom(string $path, string $key): void
-    {
-        $existingChannels = (array) config("{$key}.channels", []);
-
-        /** @var array{channels?: array<string, mixed>} $packageChannels */
-        $packageChannels = require $path;
-
-        config([
-            "{$key}.channels" => array_merge($packageChannels['channels'] ?? [], $existingChannels),
-        ]);
     }
 }
