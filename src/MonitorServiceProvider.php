@@ -13,11 +13,11 @@ class MonitorServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/monitor.php', 'monitor');
 
-        $this->app->singleton(Monitor::class, fn () => new Monitor);
-        $this->app->singleton(Trace::class, fn () => new Trace);
-        $this->app->singleton(LogTimer::class, fn () => new LogTimer);
-        $this->app->singleton(CircuitBreaker::class, fn () => new CircuitBreaker);
-        $this->app->singleton(ControlledContext::class, fn () => new ControlledContext);
+        $this->app->scoped(Monitor::class, fn () => new Monitor);
+        $this->app->scoped(Trace::class, fn () => new Trace);
+        $this->app->scoped(LogTimer::class, fn () => new LogTimer);
+        $this->app->scoped(CircuitBreaker::class, fn () => new CircuitBreaker);
+        $this->app->scoped(ControlledContext::class, fn () => new ControlledContext);
 
         // Remove automatic logging channel merging - users should configure their own channels
     }
