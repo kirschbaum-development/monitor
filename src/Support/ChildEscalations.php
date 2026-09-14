@@ -13,8 +13,10 @@ use WeakMap;
  * A parent's retry policy consults this so it never re-runs a child that has
  * already exhausted its own attempts: retries do not compose across the stack.
  * The parent's corrections still see the exception like any other.
+ *
+ * @internal
  */
-final class ChildEscalations
+class ChildEscalations
 {
     /** @var WeakMap<Throwable, string>|null */
     private static ?WeakMap $escalations = null;

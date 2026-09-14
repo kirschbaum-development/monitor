@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Fixtures;
 
-use Kirschbaum\Monitor\Escalations\Escalation;
+use Kirschbaum\Monitor\Contracts\Escalation;
 use Kirschbaum\Monitor\Outcome;
 
 final class PagePayments implements Escalation

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Console;
+namespace Kirschbaum\Monitor\Console\Commands;
 
 use Illuminate\Console\Command;
 use Kirschbaum\Monitor\Inventory\Discovery;
@@ -10,7 +10,7 @@ use Kirschbaum\Monitor\Inventory\Explainer;
 use Kirschbaum\Monitor\Inventory\PointDescription;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 
-final class ExplainCommand extends Command
+class ExplainCommand extends Command
 {
     protected $signature = 'monitor:explain {point : The control point name} {--json : Print the description as JSON}';
 

@@ -208,7 +208,7 @@ $log->info('Index rebuilt');
 $log->warning('Index stale', ['age_minutes' => 42]);
 ```
 
-Both return new instances; the original is unchanged. The logger implements `Psr\Log\LoggerInterface`, so it can be handed to anything that accepts one.
+Both return new instances; the original is unchanged. The logger implements `Psr\Log\LoggerInterface`, so it can be handed to anything that accepts one, and uses `Conditionable`, so `when()` and `unless()` work on it. A level that is neither a string nor `Stringable` is written at `info`.
 
 ## Events
 
@@ -228,7 +228,7 @@ Every record is written by a listener, and the events are public. Alerting, metr
 | `Kirschbaum\Monitor\Events\BreakerHalfOpen` | `breaker`, `state`. |
 | `Kirschbaum\Monitor\Events\BreakerClosed` | `breaker`, `state`. |
 
-`Outcome` is described in [Control Points](control-points.md). A listener that pages on escalation:
+`Outcome` is described in [Getting Started](getting-started.md#the-outcome). `Kirschbaum\Monitor\RunInfo` is the readonly object the in-progress events carry, with public `point`, `id`, `parentId`, `traceId`, `domain`, `origin`, `profile`, `stack` and `context`; `Outcome::info()` returns the same object for a finished run. A listener that pages on escalation:
 
 ```php
 use Kirschbaum\Monitor\Events\PointEscalated;

@@ -19,7 +19,7 @@ The store is off by default. Records in the log do not depend on it.
 Set `records.store.enabled`, then create the table:
 
 ```
-MONITOR_STORE=true
+MONITOR_STORE_ENABLED=true
 ```
 
 ```bash
@@ -27,12 +27,12 @@ php artisan vendor:publish --tag=monitor-migrations
 php artisan migrate
 ```
 
-Publishing copies the migration into `database/migrations` with a timestamp. Publishing is optional: while the store is enabled, the service provider also loads the migration straight from the package, so `php artisan migrate` alone creates the table. Publish it when you want to change it.
+Publishing copies the migration into `database/migrations` with a timestamp, the way Laravel's first-party packages ship theirs. The package never loads the migration on its own, so the table exists only once you have published and run it.
 
 ```php
 'records' => [
     'store' => [
-        'enabled' => env('MONITOR_STORE', false),
+        'enabled' => env('MONITOR_STORE_ENABLED', false),
         'connection' => env('MONITOR_STORE_CONNECTION'),
         'table' => 'monitor_outcomes',
         'retention_days' => 30,
@@ -73,10 +73,13 @@ Context and exception messages go through the same Redactor profile as records, 
 
 Nothing is written on the request path. `Kirschbaum\Monitor\Store\StoreOutcomes` listens to `PointEnded`, keeps the outcome in memory, and writes the buffer in one statement:
 
-- when the application terminates, after the response has been sent, and
-- after each queued job, on `JobProcessed` and `JobExceptionOccurred`, so a long-running worker never holds outcomes across jobs.
+- after each HTTP request, once the response has been sent;
+- after each console command;
+- after each queued job, on `JobProcessed` and `JobExceptionOccurred`, so a long-running worker never holds outcomes across jobs;
+- on `Queue::looping` and when a worker stops; and
+- as soon as the buffer holds 100 outcomes, so a long-running command that runs many points does not hold them until it exits.
 
-Rows are upserted on `run_id`, so writing the same buffer twice is harmless.
+Rows are upserted on `run_id`, so writing the same buffer twice is harmless. A test that wants the rows before the request ends calls `app(StoreOutcomes::class)->flush()`; `pending()` says how many outcomes are waiting.
 
 A failing write is caught. The first failure in a process is logged at warning as `[Monitor] the outcome store could not be written; outcomes are still in the log`; later ones are silent. The store is never the reason a control point fails, and never adds a query to the request that ran it.
 
@@ -118,7 +121,15 @@ $store->lastSeen();
 // ['payment.charge' => ['ended_at' => '2026-09-14 18:10:25.011', 'status' => 'succeeded'], ...]
 ```
 
-`prune()` deletes rows older than the given number of days, or the configured retention, and returns the count. `query()` returns a query builder on the table for anything else.
+`prune()` deletes rows older than the given number of days, or the configured retention, and returns the count.
+
+The rest of the store's public methods:
+
+| Method | Meaning |
+| --- | --- |
+| `write(array $outcomes)` | Upsert a list of `Outcome` objects and return how many were written. `StoreOutcomes` calls it; a listener of your own may too. |
+| `query()` | A query builder on the table, for anything the helpers do not cover. |
+| `table()`, `connection()`, `retentionDays()` | The configured table, connection and retention. |
 
 ## monitor:outcomes
 

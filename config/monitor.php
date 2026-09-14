@@ -184,6 +184,18 @@ return [
         'redaction' => env('MONITOR_REDACTION_PROFILE', 'observability'),
         'exception_trace' => env('MONITOR_EXCEPTION_TRACE', 'never'), // never | debug | always
         'exception_trace_lines' => 15,
+
+        /*
+        |----------------------------------------------------------------------
+        | Record Levels
+        |----------------------------------------------------------------------
+        |
+        | The PSR-3 level each event is written at. A missing event is written
+        | at "info". Event names contain dots, so set the whole array rather
+        | than one nested key.
+        |
+        */
+
         'levels' => [
             'point.started' => 'debug',
             'point.retried' => 'notice',
@@ -198,7 +210,7 @@ return [
             'breaker.closed' => 'info',
         ],
         'store' => [
-            'enabled' => env('MONITOR_STORE', false),
+            'enabled' => env('MONITOR_STORE_ENABLED', false),
             'connection' => env('MONITOR_STORE_CONNECTION'),
             'table' => 'monitor_outcomes',
             'retention_days' => 30,
@@ -217,7 +229,7 @@ return [
     */
 
     'mcp' => [
-        'enabled' => env('MONITOR_MCP', false),
+        'enabled' => env('MONITOR_MCP_ENABLED', false),
         'handle' => 'monitor',
     ],
 ];

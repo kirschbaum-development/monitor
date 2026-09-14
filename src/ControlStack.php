@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\Context;
  * visible as "control_point" so it lands on every log line the application
  * writes while the point runs.
  */
-final class ControlStack
+class ControlStack
 {
     public const string KEY = 'monitor.stack';
 

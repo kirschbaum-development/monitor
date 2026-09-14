@@ -4,7 +4,13 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Inventory;
 
-final readonly class Finding
+use Illuminate\Contracts\Support\Arrayable;
+use JsonSerializable;
+
+/**
+ * @implements Arrayable<string, mixed>
+ */
+final readonly class Finding implements Arrayable, JsonSerializable
 {
     public const string ERROR = 'error';
 
@@ -37,5 +43,13 @@ final readonly class Finding
             'file' => $this->file,
             'line' => $this->line,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

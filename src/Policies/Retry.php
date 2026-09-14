@@ -6,6 +6,7 @@ namespace Kirschbaum\Monitor\Policies;
 
 use Closure;
 use Illuminate\Support\Sleep;
+use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Policies\Concerns\FiltersExceptions;
 use Kirschbaum\Monitor\Run;
 use Kirschbaum\Monitor\Support\ChildEscalations;
@@ -19,11 +20,9 @@ use Throwable;
  * happened rather than a wrapper. An attempts() limit on the point caps the
  * total regardless of what is asked for here.
  */
-final class Retry implements Policy
+class Retry implements Policy
 {
     use FiltersExceptions;
-
-    private int $times = 1;
 
     private int $backoffMs = 0;
 
@@ -31,16 +30,16 @@ final class Retry implements Policy
 
     private bool $jitter = true;
 
-    public static function times(int $times): self
-    {
-        return (new self)->setTimes($times);
-    }
+    private readonly int $times;
 
-    public function setTimes(int $times): self
+    final public function __construct(int $times = 1)
     {
         $this->times = max(0, $times);
+    }
 
-        return $this;
+    public static function times(int $times): static
+    {
+        return new static($times);
     }
 
     public function backoff(int $ms, float $multiplier = 2.0, bool $jitter = true): self

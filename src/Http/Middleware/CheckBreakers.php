@@ -18,9 +18,9 @@ use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
  * Retry-After is the real time left on the circuit. Checking does not consume
  * the circuit's probe; the first control point through does that.
  */
-final readonly class CheckBreakers
+class CheckBreakers
 {
-    public function __construct(private CircuitBreaker $breaker) {}
+    public function __construct(private readonly CircuitBreaker $breaker) {}
 
     public function handle(Request $request, Closure $next, string ...$breakers): SymfonyResponse
     {

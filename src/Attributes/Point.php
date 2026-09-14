@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Attributes;
 
 use Attribute;
+use BackedEnum;
 
 /**
  * Names a control point class. Everything here is readable without running
@@ -13,9 +14,13 @@ use Attribute;
 #[Attribute(Attribute::TARGET_CLASS)]
 final readonly class Point
 {
+    public string $name;
+
     public function __construct(
-        public string $name,
+        string|BackedEnum $name,
         public ?string $profile = null,
         public ?string $domain = null,
-    ) {}
+    ) {
+        $this->name = $name instanceof BackedEnum ? (string) $name->value : $name;
+    }
 }

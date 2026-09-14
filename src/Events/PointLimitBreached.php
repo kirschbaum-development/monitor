@@ -6,7 +6,7 @@ namespace Kirschbaum\Monitor\Events;
 
 use Kirschbaum\Monitor\RunInfo;
 
-final readonly class PointLimitBreached
+class PointLimitBreached
 {
     public function __construct(
         public RunInfo $run,

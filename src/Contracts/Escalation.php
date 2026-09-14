@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Escalations;
+namespace Kirschbaum\Monitor\Contracts;
 
 use Kirschbaum\Monitor\Outcome;
 

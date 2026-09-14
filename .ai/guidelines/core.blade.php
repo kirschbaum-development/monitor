@@ -33,6 +33,8 @@ ChargeCard::run($invoice);     // value, or throws what escaped
 ChargeCard::attempt($invoice); // Outcome: ->status, ->value, ->exception
 ```
 
+Use `attempt()` when the caller branches on the outcome and `run()` when it wants the value. Points nest: a child's escalation reaches the parent's `recover()`, and retries never compose across the stack.
+
 Rules that `php artisan monitor:points --check` enforces:
 
 - Names are dotted lowercase: `domain.operation`, unique across the app.
@@ -53,12 +55,13 @@ Rules that `php artisan monitor:points --check` enforces:
 ```php
 Monitor::fake();                                  // records every outcome, still runs the code
 Monitor::fake()->failing('payment.charge', new CardDeclined('do_not_honor'));
-Monitor::fake(['payment.charge' => ChargeResult::declined()]);
+Monitor::fake()->returning('payment.charge', ChargeResult::declined());
 
 Monitor::assertSucceeded('payment.charge');
 Monitor::assertRecovered('payment.charge', from: CardDeclined::class);
 Monitor::assertEscalated('payment.charge', with: ConnectionException::class);
 Monitor::assertRetried('payment.charge', times: 2);
+Monitor::assertNotEscalated('payment.charge');
 Monitor::assertNothingEscalated();
 ```
 

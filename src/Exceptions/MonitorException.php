@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Exceptions;
 
-use RuntimeException;
+use Throwable;
 
-class MonitorException extends RuntimeException {}
+/**
+ * Every exception the package throws, so callers can catch them as one.
+ */
+interface MonitorException extends Throwable {}

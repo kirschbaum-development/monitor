@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Policies;
+namespace Kirschbaum\Monitor\Contracts;
 
 use Closure;
 use Kirschbaum\Monitor\Run;

@@ -8,7 +8,8 @@ use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Support\Str;
-use Kirschbaum\Monitor\Escalations\Escalation;
+use Kirschbaum\Monitor\Contracts\Escalation;
+use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Events\EscalationFailed;
 use Kirschbaum\Monitor\Events\PointEnded;
 use Kirschbaum\Monitor\Events\PointEscalated;
@@ -19,7 +20,6 @@ use Kirschbaum\Monitor\Events\PointRetried;
 use Kirschbaum\Monitor\Events\PointStarted;
 use Kirschbaum\Monitor\Limits\Attempts;
 use Kirschbaum\Monitor\Limits\Within;
-use Kirschbaum\Monitor\Policies\Policy;
 use Kirschbaum\Monitor\Risks\BreakerOpen;
 use Kirschbaum\Monitor\Risks\EnsureFailed;
 use Kirschbaum\Monitor\Support\ChildEscalations;
@@ -29,7 +29,7 @@ use Throwable;
 /**
  * One execution of a control point, from the first event to the outcome.
  */
-final class Run
+class Run
 {
     private RunInfo $info;
 

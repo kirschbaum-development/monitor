@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Inventory\Rules;
+namespace Kirschbaum\Monitor\Contracts;
 
 use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;

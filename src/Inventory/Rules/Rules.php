@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Inventory\Rules;
 
 use Illuminate\Support\Facades\Config;
+use Kirschbaum\Monitor\Contracts\Rule;
 
-final class Rules
+class Rules
 {
     /**
      * @return array<string, class-string<Rule>>

@@ -97,7 +97,7 @@ Both produce the same `Outcome`, the same events and the same records.
 | `policies` | The policies that ran, described. |
 | `context`, `stack`, `timeline` | The point's context, the stack of point names, and every transition with its offset in milliseconds. |
 
-It has `succeeded()`, `recovered()`, `escalated()`, `refused()`, `hasValue()` and `breachedLimit($name)` helpers, and `toArray()` for a scalar view with the exception summarised.
+It has `succeeded()`, `recovered()`, `escalated()`, `refused()`, `hasValue()` and `breachedLimit($name)` helpers, `info()` for the run's `RunInfo`, and `toArray()` for a scalar view with the exception summarised. It implements `Arrayable` and `JsonSerializable`, so it can be returned from a route or queued as it is.
 
 ## A Control Point Class
 

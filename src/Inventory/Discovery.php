@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Inventory;
 
 use Illuminate\Support\Facades\Config;
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\Control;
 use Kirschbaum\Monitor\ControlPoint;
-use Kirschbaum\Monitor\Inventory\Rules\Rule;
 use Kirschbaum\Monitor\Support\Domain;
 use Kirschbaum\Monitor\Support\Lists;
 use Symfony\Component\Finder\Finder;
@@ -17,9 +17,9 @@ use Throwable;
  * Builds the inventory: scans the configured paths, describes every class-form
  * point fully and every inline point by name, then runs the rules.
  */
-final readonly class Discovery
+class Discovery
 {
-    public function __construct(private AstScanner $scanner) {}
+    public function __construct(private readonly AstScanner $scanner) {}
 
     /**
      * @param  list<string>|null  $paths  absolute or relative to base_path(); defaults to config

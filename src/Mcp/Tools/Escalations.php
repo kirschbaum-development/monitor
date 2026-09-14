@@ -4,16 +4,15 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Mcp\Tools;
 
-use Illuminate\Container\Container;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Illuminate\Support\Carbon;
-use Kirschbaum\Monitor\Console\OutcomesCommand;
+use Kirschbaum\Monitor\Console\Commands\OutcomesCommand;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
-final class Escalations extends Tool
+class Escalations extends Tool
 {
     protected string $name = 'escalations';
 
@@ -27,12 +26,10 @@ final class Escalations extends Tool
         ];
     }
 
-    public function handle(Request $request): Response
+    public function handle(Request $request, OutcomeStore $store): Response
     {
-        $store = Container::getInstance()->make(OutcomeStore::class);
-
         if (! $store->enabled()) {
-            return Response::error('The outcome store is disabled. Set MONITOR_STORE=true and run the migration; records are still in the log.');
+            return Response::error('The outcome store is disabled. Set MONITOR_STORE_ENABLED=true and run the migration; records are still in the log.');
         }
 
         $since = $request->get('since');

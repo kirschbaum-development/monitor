@@ -5,17 +5,18 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Inventory\Rules;
 
 use Illuminate\Support\Facades\Config;
+use Kirschbaum\Monitor\Contracts\Escalation;
+use Kirschbaum\Monitor\Contracts\Policy;
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\ControlPoint;
-use Kirschbaum\Monitor\Escalations\Escalation;
 use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;
-use Kirschbaum\Monitor\Policies\Policy;
 
 /**
  * A class in a critical namespace that is neither a control point class nor
  * calls one inline is an operation nobody declared.
  */
-final class CriticalNamespaceUncontrolled implements Rule
+class CriticalNamespaceUncontrolled implements Rule
 {
     public function name(): string
     {

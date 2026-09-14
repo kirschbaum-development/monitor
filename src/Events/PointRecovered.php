@@ -6,7 +6,7 @@ namespace Kirschbaum\Monitor\Events;
 
 use Kirschbaum\Monitor\Outcome;
 
-final readonly class PointRecovered
+class PointRecovered
 {
     public function __construct(public Outcome $outcome) {}
 }

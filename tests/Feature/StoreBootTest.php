@@ -6,10 +6,12 @@ namespace Tests\Feature;
 
 use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Database\Migrations\Migrator;
+use Illuminate\Support\ServiceProvider;
+use Kirschbaum\Monitor\MonitorServiceProvider;
 use Tests\TestCase;
 
 /**
- * The provider only loads the migration when the store is enabled at boot.
+ * The store migration is published, never loaded behind the application's back.
  */
 final class StoreBootTest extends TestCase
 {
@@ -19,10 +21,16 @@ final class StoreBootTest extends TestCase
         $app['config']->set('monitor.records.store.enabled', true);
     }
 
-    public function test_the_migration_path_is_registered_when_the_store_is_enabled(): void
+    public function test_the_migration_is_publishable_but_not_auto_loaded(): void
     {
         $paths = $this->app->make(Migrator::class)->paths();
 
-        $this->assertNotEmpty(array_filter($paths, fn (string $p): bool => str_ends_with($p, 'database/migrations')));
+        $this->assertNotContains(realpath(__DIR__.'/../../database/migrations'), array_map(realpath(...), $paths));
+
+        $published = ServiceProvider::pathsToPublish(MonitorServiceProvider::class, 'monitor-migrations');
+
+        $this->assertNotEmpty($published);
+        $this->assertSame(realpath(__DIR__.'/../../database/migrations'), realpath((string) array_key_first($published)));
+        $this->assertFileExists(__DIR__.'/../../database/migrations/2026_09_14_000000_create_monitor_outcomes_table.php');
     }
 }

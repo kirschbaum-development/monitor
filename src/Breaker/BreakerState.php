@@ -4,10 +4,15 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Breaker;
 
+use Illuminate\Contracts\Support\Arrayable;
+use JsonSerializable;
+
 /**
  * What the store knows about one circuit. Immutable; every change is a new state.
+ *
+ * @implements Arrayable<string, mixed>
  */
-final readonly class BreakerState
+final readonly class BreakerState implements Arrayable, JsonSerializable
 {
     /**
      * @param  list<int>  $failures  unix timestamps of recent failures, oldest first
@@ -110,5 +115,13 @@ final readonly class BreakerState
         $openFor = is_int($data['open_for'] ?? null) ? $data['open_for'] : null;
 
         return new self($state ?? State::Closed, $failures, $openedAt, $openFor);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

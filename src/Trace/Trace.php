@@ -14,7 +14,7 @@ use Kirschbaum\Monitor\Exceptions\InvalidTraceId;
  * every log line the application writes. Trace IDs are 32 lowercase hex
  * characters, the W3C form; a UUID is accepted and normalised to that.
  */
-final class Trace
+class Trace
 {
     public const string KEY = 'trace_id';
 
@@ -74,7 +74,7 @@ final class Trace
         $normalised = self::normalise($id);
 
         if ($normalised === null) {
-            throw new InvalidTraceId(sprintf('"%s" is not a valid trace ID.', $id));
+            throw new InvalidTraceId(sprintf('[%s] is not a valid trace ID.', $id));
         }
 
         Context::add(self::KEY, $normalised);

@@ -25,7 +25,7 @@ use PHPUnit\Framework\Assert;
  *
  * The assertions are also plain static methods, for PHPUnit.
  */
-final class Expectations
+class Expectations
 {
     /**
      * The subject an expectation was built on; Pest rebinds the closures below
@@ -73,6 +73,9 @@ final class Expectations
         Assert::assertEmpty($findings, self::describe($findings, "Incomplete control points in {$namespace}:"));
     }
 
+    /**
+     * @internal
+     */
     public static function namespaceOf(mixed $value): string
     {
         if (! is_string($value) || $value === '') {

@@ -4,16 +4,16 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Mcp\Tools;
 
-use Illuminate\Container\Container;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Kirschbaum\Monitor\Inventory\Discovery;
 use Kirschbaum\Monitor\Inventory\Explainer;
+use Kirschbaum\Monitor\Inventory\PointDescription;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
-final class ExplainPoint extends Tool
+class ExplainPoint extends Tool
 {
     protected string $name = 'explain_point';
 
@@ -26,7 +26,7 @@ final class ExplainPoint extends Tool
         ];
     }
 
-    public function handle(Request $request): Response
+    public function handle(Request $request, Discovery $discovery, Explainer $explainer, OutcomeStore $store): Response
     {
         $name = $request->get('point');
 
@@ -34,15 +34,12 @@ final class ExplainPoint extends Tool
             return Response::error('Pass the control point name as "point".');
         }
 
-        $container = Container::getInstance();
-        $point = $container->make(Discovery::class)->build()->find($name);
+        $point = $discovery->build()->find($name);
 
-        if ($point === null) {
+        if (! $point instanceof PointDescription) {
             return Response::error(sprintf('No control point named "%s". Use list_points to see what exists.', $name));
         }
 
-        $store = $container->make(OutcomeStore::class);
-
-        return Response::text($container->make(Explainer::class)->explain($point, $store->enabled() ? $store : null));
+        return Response::text($explainer->explain($point, $store->enabled() ? $store : null));
     }
 }

@@ -20,9 +20,9 @@ use Symfony\Component\HttpFoundation\Response;
  * replacement is logged once at debug, so a client sending junk cannot put
  * junk on every log line of the request.
  */
-final readonly class StartTrace
+class StartTrace
 {
-    public function __construct(private Trace $trace) {}
+    public function __construct(private readonly Trace $trace) {}
 
     public function handle(Request $request, Closure $next): Response
     {

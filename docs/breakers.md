@@ -5,6 +5,7 @@
 - [Storage](#storage)
 - [On a Control Point](#on-a-control-point)
 - [The Standalone API](#the-standalone-api)
+- [BreakerState](#breakerstate)
 - [The Route Middleware](#the-route-middleware)
 - [Events](#events)
 
@@ -85,7 +86,7 @@ $breaker->isOpen('stripe');       // true while refusing; false when closed or w
 $breaker->isClosed('stripe');     // the opposite
 $breaker->retryAfter('stripe');   // seconds until the open period ends, 0 when not open
 
-$breaker->attempt('stripe');      // a Decision: ->allowed, ->probe, ->retryAfterSeconds
+$breaker->permit('stripe');       // a Decision: ->allowed, ->probe, ->retryAfterSeconds
 $breaker->recordFailure('stripe');
 $breaker->recordSuccess('stripe');
 
@@ -93,9 +94,9 @@ $breaker->open('stripe', 300);    // open by hand for 300 seconds, e.g. from a h
 $breaker->close('stripe');        // close by hand and clear the failures
 ```
 
-`attempt()` is what the policy calls. It moves an expired open circuit to half-open and hands out its single probe, so call it only when you are about to make the attempt and will report back with `recordFailure()` or `recordSuccess()`. `isOpen()` only looks; it does not consume the probe.
+`permit()` is what the policy calls. It moves an expired open circuit to half-open and hands out its single probe, so call it only when you are about to make the attempt and will report back with `recordFailure()` or `recordSuccess()`. `isOpen()` only looks; it does not consume the probe.
 
-`attempt()` and `recordFailure()` accept a `Kirschbaum\Monitor\Breaker\BreakerConfig` as a second argument to use numbers other than the defaults:
+`permit()` and `recordFailure()` accept a `Kirschbaum\Monitor\Breaker\BreakerConfig` as a second argument to use numbers other than the defaults:
 
 ```php
 use Kirschbaum\Monitor\Breaker\BreakerConfig;
@@ -106,7 +107,7 @@ $breaker->recordFailure('efiling', new BreakerConfig(after: 2, within: 30, for: 
 A hand-rolled guard around code that is not a control point:
 
 ```php
-$decision = Monitor::breaker()->attempt('search');
+$decision = Monitor::breaker()->permit('search');
 
 if (! $decision->allowed) {
     return $this->cachedResults();
@@ -123,6 +124,21 @@ try {
     throw $e;
 }
 ```
+
+## BreakerState
+
+`state()` and every breaker event hand back a `Kirschbaum\Monitor\Breaker\BreakerState`, a readonly object. It implements `Arrayable` and `JsonSerializable`, so it can be returned from a health endpoint as it is.
+
+| Member | Meaning |
+| --- | --- |
+| `state` | A `Kirschbaum\Monitor\Breaker\State` case: `Closed`, `Open` or `HalfOpen`. |
+| `failures` | Unix timestamps of the failures inside the window, oldest first, at most `after` of them. |
+| `openedAt`, `openFor` | When the circuit opened and for how many seconds, or `null` while closed. |
+| `isClosed()`, `isOpen()`, `isHalfOpen()` | The state as booleans. |
+| `failureCount()` | How many failures are in the window. |
+| `retryAfter(int $now)` | Seconds left on the open period at the given time, `0` when not open. |
+| `probeDue(int $now)` | Whether the circuit is open and its period has ended, so the next attempt is the probe. |
+| `toArray()` | `state`, `failures`, `opened_at`, `open_for`. |
 
 ## The Route Middleware
 

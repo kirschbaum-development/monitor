@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Mcp\Tools;
 
-use Illuminate\Container\Container;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Kirschbaum\Monitor\Inventory\Discovery;
 use Kirschbaum\Monitor\Inventory\Finding;
@@ -13,7 +12,7 @@ use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Tool;
 
-final class ListPoints extends Tool
+class ListPoints extends Tool
 {
     protected string $name = 'list_points';
 
@@ -26,9 +25,9 @@ final class ListPoints extends Tool
         ];
     }
 
-    public function handle(Request $request): Response
+    public function handle(Request $request, Discovery $discovery): Response
     {
-        $inventory = Container::getInstance()->make(Discovery::class)->build();
+        $inventory = $discovery->build();
         $domain = $request->get('domain');
         $filtered = is_string($domain) && $domain !== '';
 

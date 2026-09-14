@@ -155,7 +155,7 @@ describe('circuit breaker service', function (): void {
     it('starts closed', function (): void {
         expect(Monitor::breaker()->state('fresh')->isClosed())->toBeTrue()
             ->and(Monitor::breaker()->isClosed('fresh'))->toBeTrue()
-            ->and(Monitor::breaker()->attempt('fresh')->allowed)->toBeTrue()
+            ->and(Monitor::breaker()->permit('fresh')->allowed)->toBeTrue()
             ->and(Monitor::breaker()->retryAfter('fresh'))->toBe(0);
     });
 

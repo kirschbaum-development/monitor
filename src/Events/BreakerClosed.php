@@ -6,7 +6,7 @@ namespace Kirschbaum\Monitor\Events;
 
 use Kirschbaum\Monitor\Breaker\BreakerState;
 
-final readonly class BreakerClosed
+class BreakerClosed
 {
     public function __construct(public string $breaker, public BreakerState $state) {}
 }

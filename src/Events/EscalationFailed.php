@@ -10,7 +10,7 @@ use Throwable;
 /**
  * The escalation handler itself threw. The original exception still propagates.
  */
-final readonly class EscalationFailed
+class EscalationFailed
 {
     public function __construct(public Outcome $outcome, public Throwable $exception) {}
 }

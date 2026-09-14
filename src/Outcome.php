@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
+use Illuminate\Contracts\Support\Arrayable;
+use JsonSerializable;
 use Throwable;
 
 /**
@@ -11,8 +13,10 @@ use Throwable;
  *
  * Whether a caller sees it through attempt(), an event, the fake or the store,
  * it is the same object with the same fields.
+ *
+ * @implements Arrayable<string, mixed>
  */
-final readonly class Outcome
+final readonly class Outcome implements Arrayable, JsonSerializable
 {
     /**
      * @param  array<string, array{threshold: int|float, actual: int|float}>  $limitsBreached
@@ -119,5 +123,13 @@ final readonly class Outcome
             'context' => $this->context,
             'stack' => $this->stack,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

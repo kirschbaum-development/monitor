@@ -10,8 +10,10 @@ use Throwable;
 /**
  * The part of an exception worth recording: class, message, location, code,
  * the previous exception one level down, and a trace only when configured.
+ *
+ * @internal
  */
-final class ExceptionSummary
+class ExceptionSummary
 {
     /**
      * @return array<string, mixed>

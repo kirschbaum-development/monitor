@@ -14,7 +14,7 @@ use Throwable;
  * The class form of a control point.
  *
  *     #[Point('payment.charge', profile: 'external')]
- *     final class ChargeCard extends ControlPoint
+ *     class ChargeCard extends ControlPoint
  *     {
  *         public function __construct(private readonly Invoice $invoice) {}
  *
@@ -107,7 +107,7 @@ abstract class ControlPoint
         $attributes = (new ReflectionClass(static::class))->getAttributes(Point::class);
 
         if ($attributes === []) {
-            throw new InvalidControlPoint(sprintf('%s must carry a #[Point("name")] attribute.', static::class));
+            throw new InvalidControlPoint(sprintf('[%s] must carry a #[Point] attribute.', static::class));
         }
 
         return $attributes[0]->newInstance();
@@ -156,7 +156,7 @@ abstract class ControlPoint
         $handle = [$instance, 'handle'];
 
         if (! is_callable($handle)) {
-            throw new InvalidControlPoint(sprintf('%s must define a public handle() method.', static::class));
+            throw new InvalidControlPoint(sprintf('[%s] must define a public handle() method.', static::class));
         }
 
         return Container::getInstance()->call($handle);

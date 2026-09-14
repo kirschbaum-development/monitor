@@ -10,7 +10,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Prompt;
 use Laravel\Mcp\Server\Prompts\Argument;
 
-final class WrapOperation extends Prompt
+class WrapOperation extends Prompt
 {
     protected string $name = 'wrap_operation';
 

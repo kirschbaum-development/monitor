@@ -24,7 +24,7 @@ use Psr\Log\LoggerInterface;
  * Writes one log record per transition, on the configured channel, with the
  * context redacted. Levels come from config('monitor.records.levels').
  */
-final class Recorder
+class Recorder
 {
     /**
      * @return array<class-string, string>

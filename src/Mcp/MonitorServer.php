@@ -21,7 +21,7 @@ use Laravel\Mcp\Transport\JsonRpcResponse;
  * A read-only server that lets an agent inspect the application's control
  * points and what happened at them. Started with `php artisan mcp:start monitor`.
  */
-final class MonitorServer extends Server
+class MonitorServer extends Server
 {
     protected string $name = 'Monitor';
 

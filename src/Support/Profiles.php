@@ -5,18 +5,20 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Support;
 
 use Illuminate\Support\Facades\Config;
+use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Exceptions\InvalidProfile;
 use Kirschbaum\Monitor\Limits\Attempts;
 use Kirschbaum\Monitor\Limits\Within;
 use Kirschbaum\Monitor\Policies\Breaker;
-use Kirschbaum\Monitor\Policies\Policy;
 use Kirschbaum\Monitor\Policies\Retry;
 use Kirschbaum\Monitor\Policies\Transaction;
 
 /**
  * Turns a configured profile into the policies and limits it bundles.
+ *
+ * @internal
  */
-final class Profiles
+class Profiles
 {
     /**
      * @return list<string>
@@ -42,7 +44,7 @@ final class Profiles
         $definition = Config::get("monitor.profiles.{$name}");
 
         if (! is_array($definition)) {
-            throw new InvalidProfile(sprintf('Profile "%s" is not defined in config/monitor.php.', $name));
+            throw new InvalidProfile(sprintf('Profile [%s] is not defined in config/monitor.php.', $name));
         }
 
         /** @var array<string, mixed> $definition */

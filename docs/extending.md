@@ -6,6 +6,7 @@
 - [Listening to Events](#listening-to-events)
 - [A Custom Inventory Rule](#a-custom-inventory-rule)
 - [Domain Resolution](#domain-resolution)
+- [A Custom MCP Tool](#a-custom-mcp-tool)
 
 ## Introduction
 
@@ -13,7 +14,7 @@ Monitor's surface is small on purpose, and each piece of it is a contract you ca
 
 ## A Custom Policy
 
-A policy is a class implementing `Kirschbaum\Monitor\Policies\Policy`:
+A policy is a class implementing `Kirschbaum\Monitor\Contracts\Policy`:
 
 ```php
 interface Policy
@@ -34,7 +35,7 @@ interface Policy
 
 `around()` receives the run and the next step of the pipeline. Call `$next()` to make the attempt and return its value; catch what it throws when the policy is about failures. `order()` places the policy in the pipeline, lowest outermost: the shipped breaker is 100, retry 200 and transaction 300, so a breaker sees one result per run and a transaction is retried whole. `describe()` returns a static description with a `type` key for the inventory and the outcome; it must not depend on anything only known at runtime.
 
-The run offers `attempt()` (the current attempt number), `maxAttempts()` (the `attempts()` limit or `PHP_INT_MAX`), `retried($exception, $backoffMs)` for a policy that makes another attempt, `note($event, $detail)` to add an entry to the outcome's timeline, and `info()` for the `RunInfo`.
+The run offers `attempt()` (the current attempt number), `maxAttempts()` (the `attempts()` limit or `PHP_INT_MAX`), `retried($exception, $backoffMs)` for a policy that makes another attempt, and `note($event, $detail)` to add an entry to the outcome's timeline.
 
 A policy that logs how long the attempt took and adds it to the timeline:
 
@@ -42,10 +43,10 @@ A policy that logs how long the attempt took and adds it to the timeline:
 namespace App\Monitor;
 
 use Closure;
-use Kirschbaum\Monitor\Policies\Policy;
+use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Run;
 
-final class Timed implements Policy
+class Timed implements Policy
 {
     public function around(Run $run, Closure $next): mixed
     {
@@ -82,15 +83,15 @@ A policy that retries must consult `Kirschbaum\Monitor\Support\ChildEscalations:
 
 ## A Custom Escalation
 
-An escalation is a class implementing `Kirschbaum\Monitor\Escalations\Escalation`:
+An escalation is a class implementing `Kirschbaum\Monitor\Contracts\Escalation`:
 
 ```php
 namespace App\Escalations;
 
-use Kirschbaum\Monitor\Escalations\Escalation;
+use Kirschbaum\Monitor\Contracts\Escalation;
 use Kirschbaum\Monitor\Outcome;
 
-final class PagePayments implements Escalation
+class PagePayments implements Escalation
 {
     public function __construct(private readonly Pager $pager) {}
 
@@ -119,7 +120,7 @@ namespace App\Listeners;
 
 use Kirschbaum\Monitor\Events\PointEnded;
 
-final class CountOutcomes
+class CountOutcomes
 {
     public function handle(PointEnded $event): void
     {
@@ -150,7 +151,7 @@ Listeners run synchronously inside the point's run, so keep them fast or queue t
 
 ## A Custom Inventory Rule
 
-A rule implements `Kirschbaum\Monitor\Inventory\Rules\Rule`:
+A rule implements `Kirschbaum\Monitor\Contracts\Rule`:
 
 ```php
 interface Rule
@@ -170,10 +171,10 @@ A rule that requires every external point to declare a breaker:
 namespace App\Monitor\Rules;
 
 use Kirschbaum\Monitor\Inventory\Finding;
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\Inventory\Inventory;
-use Kirschbaum\Monitor\Inventory\Rules\Rule;
 
-final class ExternalPointsHaveBreakers implements Rule
+class ExternalPointsHaveBreakers implements Rule
 {
     public function name(): string
     {
@@ -236,3 +237,39 @@ A domain is derived from a class name through `domains.map`, tried in order. A n
 ```
 
 The same map serves control points, `Monitor::log()` and the inventory, so one edit moves a whole namespace to a new domain. A single point can still override it with `domain()` on the control or `domain:` on its `#[Point]` attribute; see [Control Points](control-points.md).
+
+## A Custom MCP Tool
+
+The server's own tools are ordinary `laravel/mcp` tools that read the inventory and the store. A tool of your own can reuse the same services. Dependencies are injected into `handle()`, the way `laravel/mcp` invokes tools, rather than through the constructor, so the server's test helpers can instantiate the tool without the container:
+
+```php
+namespace App\Mcp\Tools;
+
+use Illuminate\Contracts\JsonSchema\JsonSchema;
+use Kirschbaum\Monitor\Inventory\Discovery;
+use Laravel\Mcp\Request;
+use Laravel\Mcp\Response;
+use Laravel\Mcp\Server\Tool;
+
+class PointsWithoutBreakers extends Tool
+{
+    protected string $description = 'Control points that declare no breaker.';
+
+    public function schema(JsonSchema $schema): array
+    {
+        return ['domain' => $schema->string()->description('Only this domain')];
+    }
+
+    public function handle(Request $request, Discovery $discovery): Response
+    {
+        $points = array_filter(
+            $discovery->build()->classPoints(),
+            fn ($point): bool => ! in_array('breaker', array_column($point->policies, 'type'), true),
+        );
+
+        return Response::json(array_map(fn ($point): array => $point->toArray(), array_values($points)));
+    }
+}
+```
+
+Register it on a server of your own in `routes/ai.php`, or extend `Kirschbaum\Monitor\Mcp\MonitorServer` and add it to `$tools`. Responses from the shipped server are redacted as described in [Agents](agents.md#redaction); a server of your own decides for itself.

@@ -109,13 +109,13 @@ The inventory's `missing_escalation` rule reports a class-form point with no esc
 
 ### Escalation Classes
 
-A class implementing `Kirschbaum\Monitor\Escalations\Escalation` is resolved from the container, so it can take constructor dependencies:
+A class implementing `Kirschbaum\Monitor\Contracts\Escalation` is resolved from the container, so it can take constructor dependencies:
 
 ```php
-use Kirschbaum\Monitor\Escalations\Escalation;
+use Kirschbaum\Monitor\Contracts\Escalation;
 use Kirschbaum\Monitor\Outcome;
 
-final class PagePayments implements Escalation
+class PagePayments implements Escalation
 {
     public function __construct(private readonly Pager $pager) {}
 

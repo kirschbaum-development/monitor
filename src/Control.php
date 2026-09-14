@@ -4,16 +4,20 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
+use BackedEnum;
 use Closure;
 use Illuminate\Container\Container;
 use Illuminate\Database\DeadlockException;
-use Kirschbaum\Monitor\Escalations\Escalation;
+use Illuminate\Support\Traits\Conditionable;
+use Illuminate\Support\Traits\Macroable;
+use Kirschbaum\Monitor\Contracts\Escalation;
+use Kirschbaum\Monitor\Contracts\Policy;
+use Kirschbaum\Monitor\Contracts\Runner;
 use Kirschbaum\Monitor\Exceptions\InvalidControlPoint;
 use Kirschbaum\Monitor\Limits\Attempts;
 use Kirschbaum\Monitor\Limits\Ensure;
 use Kirschbaum\Monitor\Limits\Within;
 use Kirschbaum\Monitor\Policies\Breaker;
-use Kirschbaum\Monitor\Policies\Policy;
 use Kirschbaum\Monitor\Policies\Retry;
 use Kirschbaum\Monitor\Policies\Transaction;
 use Kirschbaum\Monitor\Support\Domain;
@@ -28,8 +32,13 @@ use Throwable;
  * Reads top to bottom as a contract. Two terminals: run() returns the value or
  * throws; attempt() returns the Outcome and never throws.
  */
-final class Control
+class Control
 {
+    use Conditionable;
+    use Macroable;
+
+    private readonly string $name;
+
     private string $origin;
 
     private ?string $domain = null;
@@ -58,10 +67,12 @@ final class Control
     /**
      * @param  bool  $validate  false only when describing a point whose name may be invalid
      */
-    public function __construct(private readonly string $name, string|object|null $origin = null, bool $validate = true)
+    public function __construct(string|BackedEnum $name, string|object|null $origin = null, bool $validate = true)
     {
+        $this->name = PointName::of($name);
+
         if ($validate) {
-            PointName::validate($name);
+            PointName::validate($this->name);
         }
 
         $this->origin = $this->originOf($origin);
@@ -231,7 +242,7 @@ final class Control
     public function recover(string $class, Closure $handler): self
     {
         if (! is_a($class, Throwable::class, true)) {
-            throw new InvalidControlPoint(sprintf('recover() expects a Throwable class, got "%s".', $class));
+            throw new InvalidControlPoint(sprintf('recover() expects a Throwable class, got [%s].', $class));
         }
 
         $this->risks[] = ['class' => $class, 'handler' => $handler];
@@ -247,7 +258,7 @@ final class Control
     public function escalate(Closure|string $escalation): self
     {
         if (is_string($escalation) && ! is_a($escalation, Escalation::class, true)) {
-            throw new InvalidControlPoint(sprintf('escalate() expects a Closure or an Escalation class, got "%s".', $escalation));
+            throw new InvalidControlPoint(sprintf('escalate() expects a Closure or an Escalation class, got [%s].', $escalation));
         }
 
         $this->escalation = $escalation;

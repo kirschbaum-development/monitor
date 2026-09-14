@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Console;
+namespace Kirschbaum\Monitor\Console\Commands;
 
 use Illuminate\Console\GeneratorCommand;
 use Illuminate\Support\Str;
@@ -14,7 +14,7 @@ use Symfony\Component\Console\Input\InputOption;
  * Generates App\ControlPoints\Payments\RefundCard with a #[Point] attribute,
  * an empty control() to fill in, and a test that already uses Monitor::fake().
  */
-final class MakeControlPointCommand extends GeneratorCommand
+class MakeControlPointCommand extends GeneratorCommand
 {
     protected $name = 'make:control-point';
 
@@ -39,7 +39,7 @@ final class MakeControlPointCommand extends GeneratorCommand
 
     protected function getStub(): string
     {
-        return __DIR__.'/../../stubs/control-point.stub';
+        return __DIR__.'/../../../stubs/control-point.stub';
     }
 
     protected function getDefaultNamespace($rootNamespace): string
@@ -106,7 +106,7 @@ final class MakeControlPointCommand extends GeneratorCommand
             return;
         }
 
-        $stub = $this->files->get(__DIR__.'/../../stubs/control-point-test.stub');
+        $stub = $this->files->get(__DIR__.'/../../../stubs/control-point-test.stub');
         $short = class_basename($name);
 
         $content = str_replace(

@@ -11,6 +11,6 @@ final class BreakerOpen extends Risk
 {
     public function __construct(public readonly string $breaker, public readonly int $retryAfterSeconds)
     {
-        parent::__construct(sprintf('Circuit breaker "%s" is open; retry in %ds.', $breaker, $retryAfterSeconds));
+        parent::__construct(sprintf('Circuit breaker [%s] is open; retry in %ds.', $breaker, $retryAfterSeconds));
     }
 }

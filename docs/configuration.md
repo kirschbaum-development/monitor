@@ -82,7 +82,7 @@ The shipped values are listed in [Policies and Limits](policies-and-limits.md#th
 | --- | --- | --- | --- | --- |
 | `header` | `string` | `'traceparent'` | | The W3C header the middleware reads first and writes back. |
 | `legacy_header` | `string` | `'X-Trace-Id'` | `MONITOR_TRACE_HEADER` | A plain trace-ID header read second and written back, for clients that do not speak `traceparent`. |
-| `console` | `bool` | `true` | `MONITOR_TRACE_CONSOLE` | Start a trace when the application boots in the console, so commands and workers have one. |
+| `console` | `bool` | `true` | `MONITOR_TRACE_CONSOLE` | Start a trace when an artisan command starts (on `CommandStarting`), so commands and workers have one. |
 
 ## breakers
 
@@ -133,7 +133,7 @@ Event names contain dots, so set the whole array rather than one nested key.
 
 | Key | Type | Default | Env | Meaning |
 | --- | --- | --- | --- | --- |
-| `enabled` | `bool` | `false` | `MONITOR_STORE` | Keep outcomes in a table. When enabled the package loads its migration. |
+| `enabled` | `bool` | `false` | `MONITOR_STORE_ENABLED` | Keep outcomes in a table. Publish and run the migration first; see [Store](store.md). |
 | `connection` | `string\|null` | `null` | `MONITOR_STORE_CONNECTION` | The database connection for the table; `null` is the default. |
 | `table` | `string` | `'monitor_outcomes'` | | The table name. |
 | `retention_days` | `int` | `30` | | What `monitor:prune` deletes past. |
@@ -142,7 +142,7 @@ Event names contain dots, so set the whole array rather than one nested key.
 
 | Key | Type | Default | Env | Meaning |
 | --- | --- | --- | --- | --- |
-| `enabled` | `bool` | `false` | `MONITOR_MCP` | Register the read-only MCP server. Requires `laravel/mcp`. |
+| `enabled` | `bool` | `false` | `MONITOR_MCP_ENABLED` | Register the read-only MCP server. Requires `laravel/mcp`. |
 | `handle` | `string` | `'monitor'` | | The handle for `php artisan mcp:start monitor`. |
 
 ## Environment Variables
@@ -155,6 +155,8 @@ Event names contain dots, so set the whole array rather than one nested key.
 | `MONITOR_LOG_CHANNEL` | `records.channel` |
 | `MONITOR_REDACTION_PROFILE` | `records.redaction` |
 | `MONITOR_EXCEPTION_TRACE` | `records.exception_trace` |
-| `MONITOR_STORE` | `records.store.enabled` |
+| `MONITOR_STORE_ENABLED` | `records.store.enabled` |
 | `MONITOR_STORE_CONNECTION` | `records.store.connection` |
-| `MONITOR_MCP` | `mcp.enabled` |
+| `MONITOR_MCP_ENABLED` | `mcp.enabled` |
+
+Only values that change between environments have a variable; the rest are code-level defaults edited in the published file. `php artisan about` shows the store, MCP and profile settings in effect.

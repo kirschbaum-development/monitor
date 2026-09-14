@@ -8,6 +8,7 @@ use Closure;
 use Illuminate\Container\Container;
 use Kirschbaum\Monitor\Breaker\BreakerConfig;
 use Kirschbaum\Monitor\Breaker\CircuitBreaker;
+use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Policies\Concerns\FiltersExceptions;
 use Kirschbaum\Monitor\Risks\BreakerOpen;
 use Kirschbaum\Monitor\Run;
@@ -21,7 +22,7 @@ use Throwable;
  * closes it, a failure opens it again. Failures are counted per run, after
  * retries, so a retried-then-succeeded operation is a success.
  */
-final class Breaker implements Policy
+class Breaker implements Policy
 {
     use FiltersExceptions;
 
@@ -31,11 +32,11 @@ final class Breaker implements Policy
 
     private ?int $for = null;
 
-    public function __construct(private readonly string $name) {}
+    final public function __construct(private readonly string $name) {}
 
-    public static function named(string $name): self
+    public static function named(string $name): static
     {
-        return new self($name);
+        return new static($name);
     }
 
     public function name(): string
@@ -72,7 +73,7 @@ final class Breaker implements Policy
         $circuit = Container::getInstance()->make(CircuitBreaker::class);
         $config = $this->config();
 
-        $decision = $circuit->attempt($this->name, $config);
+        $decision = $circuit->permit($this->name, $config);
 
         if (! $decision->allowed) {
             $run->note('breaker.refused', ['breaker' => $this->name, 'retry_after_s' => $decision->retryAfterSeconds]);

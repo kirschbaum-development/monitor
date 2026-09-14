@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use Illuminate\Console\Events\CommandStarting;
 use Illuminate\Http\Client\Request as ClientRequest;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Http;
@@ -9,8 +10,11 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Kirschbaum\Monitor\Facades\Monitor;
 use Kirschbaum\Monitor\Http\Middleware\StartTrace;
+use Kirschbaum\Monitor\Trace\PicksUpCommandTrace;
 use Kirschbaum\Monitor\Trace\PicksUpJobTrace;
 use Kirschbaum\Monitor\Trace\Trace;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
 use TiMacDonald\Log\LogFake;
 
 beforeEach(function (): void {
@@ -92,6 +96,23 @@ describe('outgoing propagation', function (): void {
     });
 });
 
+describe('command pickup', function (): void {
+    it('starts a trace when a command starts unless disabled', function (): void {
+        resolve(Trace::class)->clear();
+        resolve(PicksUpCommandTrace::class)->handle(new CommandStarting('inspire', new ArrayInput([]), new NullOutput));
+        expect(resolve(Trace::class)->hasStarted())->toBeTrue();
+
+        resolve(Trace::class)->clear();
+        config()->set('monitor.trace.console', false);
+        resolve(PicksUpCommandTrace::class)->handle(new CommandStarting('inspire', new ArrayInput([]), new NullOutput));
+        expect(resolve(Trace::class)->hasStarted())->toBeFalse();
+    });
+
+    it('is registered on the console event', function (): void {
+        expect(resolve('events')->getListeners(CommandStarting::class))->not->toBeEmpty();
+    });
+});
+
 describe('queue pickup', function (): void {
     it('starts a trace for a job that arrived without one', function (): void {
         expect(resolve(Trace::class)->hasStarted())->toBeFalse();
@@ -127,6 +148,6 @@ describe('CheckBreakers middleware', function (): void {
 
         $this->get('/guarded')->assertOk();
 
-        expect(Monitor::breaker()->attempt('stripe')->probe)->toBeTrue();
+        expect(Monitor::breaker()->permit('stripe')->probe)->toBeTrue();
     });
 });

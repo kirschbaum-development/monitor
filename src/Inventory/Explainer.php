@@ -11,7 +11,7 @@ use Throwable;
 /**
  * Turns a point description into prose a person or an agent can read.
  */
-final class Explainer
+class Explainer
 {
     public function explain(PointDescription $point, ?OutcomeStore $store = null): string
     {

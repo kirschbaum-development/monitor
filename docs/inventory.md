@@ -14,7 +14,7 @@
 
 ## Introduction
 
-The inventory is the list of every control point in the application, built by reading the code rather than running it. It answers the question no Laravel application could answer before: which operations are critical, and what happens when each one fails. The same scan runs a set of rules, so a point declared without an escalation, or a class in a critical namespace with no control point at all, fails the build.
+The inventory is the list of every control point in the application, built by reading the code rather than running it. It answers which operations are critical and what happens when each one fails. The same scan runs a set of rules, so a point declared without an escalation, or a class in a critical namespace with no control point at all, fails the build.
 
 ## monitor:points
 

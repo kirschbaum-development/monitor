@@ -6,7 +6,7 @@ namespace Kirschbaum\Monitor\Events;
 
 use Kirschbaum\Monitor\RunInfo;
 
-final readonly class PointStarted
+class PointStarted
 {
     public function __construct(public RunInfo $run) {}
 }

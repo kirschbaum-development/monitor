@@ -16,7 +16,9 @@ An agent that adds a critical operation should not need the conventions spelled 
 
 ## The Guidelines
 
-The package ships `.ai/guidelines/core.blade.php`. [Laravel Boost](https://github.com/laravel/boost) discovers guidelines in every installed package's `.ai/guidelines/` directory and composes them, with the project's own, into the single guidelines file it writes for the agent when `boost:install` runs. Requiring the package is enough for the convention to reach every agent working in the application.
+The package ships two things for Boost: a guideline at `.ai/guidelines/core.blade.php`, and a skill at `resources/boost/skills/monitor-development/SKILL.md`, the path Laravel's own packages use for the longer, task-shaped material an agent loads when it is working on control points. The guideline is the convention in one page; the skill walks through declaring, testing and reading a point.
+
+Boost composes the guideline as follows. [Laravel Boost](https://github.com/laravel/boost) discovers guidelines in every installed package's `.ai/guidelines/` directory and composes them, with the project's own, into the single guidelines file it writes for the agent when `boost:install` runs. Requiring the package is enough for the convention to reach every agent working in the application.
 
 The file tells an agent:
 
@@ -42,15 +44,24 @@ composer require laravel/mcp
 
 ```php
 'mcp' => [
-    'enabled' => env('MONITOR_MCP', false),
+    'enabled' => env('MONITOR_MCP_ENABLED', false),
     'handle' => 'monitor',
 ],
 ```
 
-With `MONITOR_MCP=true`, the service provider registers the server as a local server under the handle, and it starts over stdio with:
+With `MONITOR_MCP_ENABLED=true`, the service provider registers the server as a local server under the handle, and it starts over stdio with:
 
 ```bash
 php artisan mcp:start monitor
+```
+
+If you would rather register it yourself, the way `laravel/mcp` documents for an application's own servers, leave `mcp.enabled` off and add it to `routes/ai.php`:
+
+```php
+use Kirschbaum\Monitor\Mcp\MonitorServer;
+use Laravel\Mcp\Facades\Mcp;
+
+Mcp::local('monitor', MonitorServer::class);
 ```
 
 The server's instructions tell the client what a control point is and which tool to reach for.
@@ -97,4 +108,4 @@ A local stdio server, for Claude Code:
 }
 ```
 
-Cursor and other clients take the same three values: the command `php`, the arguments `artisan mcp:start monitor`, and the application root as the working directory. `MONITOR_MCP=true` must be set in the environment the command runs in.
+Cursor and other clients take the same three values: the command `php`, the arguments `artisan mcp:start monitor`, and the application root as the working directory. `MONITOR_MCP_ENABLED=true` must be set in the environment the command runs in, unless the server is registered in `routes/ai.php`.

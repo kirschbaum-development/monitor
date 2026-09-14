@@ -12,7 +12,7 @@ use Monolog\Logger as Monolog;
  * Makes a channel write newline-delimited JSON with Monitor's record fields
  * at the top level. Add it to any channel's "tap" list.
  */
-final class JsonTap
+class JsonTap
 {
     public function __invoke(Logger $logger): void
     {

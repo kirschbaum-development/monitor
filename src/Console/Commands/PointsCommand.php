@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Console;
+namespace Kirschbaum\Monitor\Console\Commands;
 
 use Illuminate\Console\Command;
 use Kirschbaum\Monitor\Inventory\Discovery;
@@ -12,7 +12,7 @@ use Kirschbaum\Monitor\Inventory\Reports\TableReport;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 use Throwable;
 
-final class PointsCommand extends Command
+class PointsCommand extends Command
 {
     protected $signature = 'monitor:points
         {--check : Exit 1 when any rule reports an error}

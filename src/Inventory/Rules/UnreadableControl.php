@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Inventory\Rules;
 
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;
 
@@ -11,7 +12,7 @@ use Kirschbaum\Monitor\Inventory\Inventory;
  * control() that depends on constructor arguments cannot be read statically,
  * so nothing else in the inventory can be trusted for that point.
  */
-final class UnreadableControl implements Rule
+class UnreadableControl implements Rule
 {
     public function name(): string
     {

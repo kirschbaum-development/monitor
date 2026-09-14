@@ -2,12 +2,12 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Console;
+namespace Kirschbaum\Monitor\Console\Commands;
 
 use Illuminate\Console\Command;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 
-final class PruneCommand extends Command
+class PruneCommand extends Command
 {
     protected $signature = 'monitor:prune {--days= : Delete outcomes older than this many days (default: the configured retention)}';
 

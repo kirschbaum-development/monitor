@@ -13,7 +13,7 @@ use Monolog\LogRecord;
  * as text inside a context blob. Context keys win over extra keys, and both
  * win over nothing; the four envelope keys are always present.
  */
-final class RecordFormatter extends NormalizerFormatter
+class RecordFormatter extends NormalizerFormatter
 {
     public function __construct()
     {

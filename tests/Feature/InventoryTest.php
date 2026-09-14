@@ -146,7 +146,7 @@ describe('reports', function (): void {
 
     it('adds history from the store when it is enabled', function (): void {
         config()->set('monitor.records.store.enabled', true);
-        (require __DIR__.'/../../database/migrations/create_monitor_outcomes_table.php')->up();
+        (require glob(__DIR__.'/../../database/migrations/*_create_monitor_outcomes_table.php')[0])->up();
         ChargeCard::run(1, 1);
         resolve(StoreOutcomes::class)->flush();
 
@@ -175,7 +175,7 @@ describe('commands', function (): void {
 
     it('shows last seen from the store', function (): void {
         config()->set('monitor.records.store.enabled', true);
-        (require __DIR__.'/../../database/migrations/create_monitor_outcomes_table.php')->up();
+        (require glob(__DIR__.'/../../database/migrations/*_create_monitor_outcomes_table.php')[0])->up();
         ChargeCard::run(1, 1);
         resolve(StoreOutcomes::class)->flush();
 

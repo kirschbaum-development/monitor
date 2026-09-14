@@ -4,11 +4,16 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Inventory;
 
+use Illuminate\Contracts\Support\Arrayable;
+use JsonSerializable;
+
 /**
  * One control point as the inventory sees it. Class-form points carry their
  * whole contract; inline points carry only what a name scan can know.
+ *
+ * @implements Arrayable<string, mixed>
  */
-final readonly class PointDescription
+final readonly class PointDescription implements Arrayable, JsonSerializable
 {
     /**
      * @param  list<array<string, mixed>>  $policies
@@ -66,5 +71,13 @@ final readonly class PointDescription
             'unreadable' => $this->unreadable,
             'notes' => $this->notes,
         ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }

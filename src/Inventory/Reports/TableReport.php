@@ -9,7 +9,7 @@ use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;
 use Kirschbaum\Monitor\Inventory\PointDescription;
 
-final class TableReport
+class TableReport
 {
     /**
      * @param  array<string, array{ended_at: string, status: string}>  $lastSeen

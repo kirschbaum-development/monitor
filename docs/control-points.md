@@ -26,7 +26,7 @@ payment.charge
 court.e_filing.submit_v2
 ```
 
-`Monitor::control('Payment')` throws `InvalidPointName` at declaration time. The inventory's `name_pattern` rule reports class-form points whose attribute name does not match. Change the pattern in `point_name_pattern` if your house style differs.
+`Monitor::control('Payment')` throws `Kirschbaum\Monitor\Exceptions\InvalidPointName`, an `InvalidArgumentException` that implements the package's `MonitorException` interface, at declaration time. The inventory's `name_pattern` rule reports class-form points whose attribute name does not match. Change the pattern in `point_name_pattern` if your house style differs.
 
 ## Origin and Domain
 
@@ -72,7 +72,20 @@ $control = Monitor::control('payment.charge', $this);
 | `attempt(Closure $callback)` | Execute; return the `Outcome`. |
 | `describe()` | The static description the inventory uses: name, origin, domain, profile, policies, limits, risk classes, whether there is a catch-all, and the escalation as a class name, `'closure'` or `null`. |
 
-`name()`, `origin()`, `resolvedDomain()`, `context()` and `profileName()` read back what was declared. `resolvedPolicies()`, `resolvedWithin()` and `resolvedAttempts()` return the effective policies and limits after the profile is merged.
+`name()`, `origin()`, `resolvedDomain()`, `context()` and `profileName()` read back what was declared, and `ensures()`, `risks()`, `riskClasses()`, `hasCatchAll()`, `escalation()` and `hasEscalation()` read back the contract, which is what the inventory and a custom rule use. `resolvedPolicies()`, `resolvedWithin()` and `resolvedAttempts()` return the effective policies and limits after the profile is merged.
+
+The builder uses `Conditionable` and `Macroable`, so a declaration can branch and an application can add its own methods:
+
+```php
+Monitor::control('payment.charge', $this)
+    ->when(app()->isProduction(), fn (Control $c) => $c->breaker('stripe'))
+    ->unless($invoice->isTest(), fn (Control $c) => $c->escalate(PagePayments::class))
+    ->run(...);
+
+Control::macro('external', fn () => $this->profile('external')->within(10));
+```
+
+A point name may be a string or a backed enum wherever one is passed: `Monitor::control(Points::Charge)`, `#[Point(Points::Charge)]`, and every method and assertion on the fake. The enum's value is used.
 
 ## The Class Form
 

@@ -37,7 +37,7 @@ Each retry policy counts its own tries. The `attempts()` limit caps the total fo
 
 Every retry fires `PointRetried` with the attempt that failed and the backoff used, and adds a `retried` entry to the outcome's timeline. The outcome's `attempts` is the total.
 
-The policy object is `Kirschbaum\Monitor\Policies\Retry`: `Retry::times(2)->backoff(200, 2.0, true)->on([...])->except([...])`.
+The policy object is `Kirschbaum\Monitor\Policies\Retry`: `new Retry(times: 2)` or `Retry::times(2)`, then `->backoff(200, 2.0, true)->on([...])->except([...])`.
 
 ### Transaction
 
@@ -47,7 +47,7 @@ The policy object is `Kirschbaum\Monitor\Policies\Retry`: `Retry::times(2)->back
 
 Runs the operation inside `DB::transaction()` on the given connection (the default when `null`), and when it fails with a retryable exception, rolls back and runs the whole transaction again. Only `Illuminate\Database\DeadlockException` is retried by default, because most failures inside a transaction are not made better by repeating them.
 
-A transaction's retries are counted like a retry policy's, so `retries: 2` can make three attempts. The policy object is `Kirschbaum\Monitor\Policies\Transaction`: `Transaction::retries(2)->on([...])->except([...])->connection('tenant')->backoff(50)`; `backoff()` is a flat delay with jitter between attempts.
+A transaction's retries are counted like a retry policy's, so `retries: 2` can make three attempts. The policy object is `Kirschbaum\Monitor\Policies\Transaction`: `new Transaction(retries: 2)` or `Transaction::retries(2)`, then `->on([...])->except([...])->connection('tenant')->backoff(50)`; `backoff()` is a flat delay with jitter between attempts.
 
 The transaction sits inside any retry policy in the pipeline, so each retry gets a fresh transaction rather than retrying inside one that has already failed.
 
@@ -75,7 +75,7 @@ Policies wrap the attempt outermost first, ordered by `Policy::order()` ascendin
 
 ### policy()
 
-`policy(Policy $policy)` adds any object implementing `Kirschbaum\Monitor\Policies\Policy`. A shipped policy passed this way replaces the one of the same type declared with the sugar method, so `->retry(times: 0)->policy(Retry::times(2))` retries twice. Writing your own policy is in [Extending](extending.md#a-custom-policy).
+`policy(Policy $policy)` adds any object implementing `Kirschbaum\Monitor\Contracts\Policy`. A shipped policy passed this way replaces the one of the same type declared with the sugar method, so `->retry(times: 0)->policy(Retry::times(2))` retries twice. Writing your own policy is in [Extending](extending.md#a-custom-policy).
 
 ## Limits
 

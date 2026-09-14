@@ -7,12 +7,12 @@
 ![Static Analysis](https://github.com/kirschbaum-development/monitor/actions/workflows/static-analysis.yml/badge.svg)
 ![Code Style](https://github.com/kirschbaum-development/monitor/actions/workflows/style-check.yml/badge.svg)
 
-Every application has a short list of operations where failure is expensive: charging a card, filing with a court system, posting a ledger entry, sending the one email a client is waiting for. What happens when those fail is usually decided by whoever touched the code last, in a try/catch nobody reviews as carefully as the happy path. Nobody can list those operations, each one behaves differently, and the recovery paths are the least tested code in the codebase.
+Monitor gives a Laravel application **control points**: the operations where a failure matters, declared in code as a contract. A control point says what it is called, which domain it belongs to, which failures it expects and what to return instead, which policies bound it, which limits it should stay within, and who is told when something it did not expect gets out. Every run ends in one outcome, succeeded, recovered, escalated or refused, and every transition is written as a record with the same fields.
 
-Monitor gives each of them a **control point**: a named declaration of what the operation tolerates, what bounds it, how every outcome is recorded, and who is told when it fails. Because it is a declaration, it can be listed, tested by name, enforced in CI, queried from a log backend, and taught to an agent by the shape of the API alone.
+Because the declaration is data, the rest of the package can read it: `monitor:points` lists every point and checks the declarations in CI, `Monitor::fake()` asserts on outcomes by name, an optional store keeps outcomes queryable, and an MCP server lets an agent ask the application what its control points are and what happened at them. The same convention ships as guidelines for Laravel Boost, so an agent adding a critical operation is told once, by the package.
 
 ```php
-// The ritual, written by hand, slightly differently in every service.
+// A critical operation as a try/catch: no name, no attempt count, no trace, null means declined.
 try {
     DB::beginTransaction();
     $charge = $this->stripe->charge($amount);
@@ -20,15 +20,13 @@ try {
 } catch (CardDeclined $e) {
     DB::rollBack();
     Log::warning('card declined: '.$e->getMessage());
-    return null;                      // the caller has to know null means declined
+    return null;
 } catch (\Throwable $e) {
     DB::rollBack();
-    Log::error($e);                   // no operation name, no attempt, no trace
+    Log::error($e);
     throw $e;
 }
-```
 
-```php
 // The same operation as a control point.
 return Monitor::control('payment.charge', $this)
     ->with(['invoice' => $invoice->id, 'amount' => $amount])
@@ -40,7 +38,7 @@ return Monitor::control('payment.charge', $this)
     ->run(fn () => $this->stripe->charge($amount));
 ```
 
-Read that once and you know the operation's name, its domain, what it tolerates, what it tries again, when it stops calling Stripe, what counts as success, and who gets paged. The same declaration produces one log record per transition with `point`, `domain`, `status`, `run_id` and `trace_id` as fields.
+The declaration says what the operation tolerates, what it tries again, when it stops calling the gateway, what counts as success, and who is paged. It produces one log record per transition with `point`, `domain`, `status`, `run_id` and `trace_id` as fields.
 
 ## Quick Start
 
@@ -128,7 +126,7 @@ An **inventory** reads the codebase without running it: `monitor:points` lists e
 - **Tracing** with W3C `traceparent` and a legacy header, `Http::traced()` for outgoing calls, and automatic propagation to queued jobs.
 - **A store** of outcomes, written after the response, for `monitor:outcomes` and the MCP tools when there is no log backend.
 - **Verification** through `Monitor::fake()` and its assertions, `monitor:points --check` with table, JSON and SARIF output, a Pest expectation and a PHPStan rule.
-- **Agents** through guidelines that Laravel Boost composes into every consuming app, a read-only MCP server (`list_points`, `explain_point`, `outcomes`, `escalations`, a `wrap_operation` prompt), and a `make:control-point` stub whose test already uses the fake.
+- **Agents** through a guideline and a skill that Laravel Boost composes into every consuming app, a read-only MCP server (`list_points`, `explain_point`, `outcomes`, `escalations`, a `wrap_operation` prompt), and a `make:control-point` stub whose test already uses the fake.
 
 ## Documentation
 
@@ -145,8 +143,8 @@ The full documentation lives in [`docs/`](docs/README.md):
 | [Breakers](docs/breakers.md) | The state machine, the standalone API, the route middleware. |
 | [Store](docs/store.md) | Enabling the outcome store, what is written and when, `monitor:outcomes`, pruning. |
 | [Inventory](docs/inventory.md) | `monitor:points`, every rule, `--check` in CI, `monitor:explain`, `make:control-point`. |
-| [Testing](docs/testing.md) | `Monitor::fake()` and its assertions, the Pest expectations, the PHPStan rule. |
-| [Agents](docs/agents.md) | The Boost guidelines, the MCP server, its tools, resources and prompt. |
+| [Testing](docs/testing.md) | `Monitor::fake()` and its assertions, the Pest expectations, the PHPStan rule, and the package's own tests. |
+| [Agents](docs/agents.md) | The Boost guideline and skill, the MCP server, its tools, resources and prompt. |
 | [Configuration](docs/configuration.md) | Every key in `config/monitor.php` with its type, default and environment variable. |
 | [Extending](docs/extending.md) | Custom policies, escalations, inventory rules, event listeners. |
 | [Upgrading](docs/upgrading.md) | Every 0.1 surface and its 1.0 replacement. |

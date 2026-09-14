@@ -51,7 +51,7 @@ class CircuitBreaker
      * Decide whether an attempt may proceed, moving an expired open circuit to
      * half-open and handing out its single probe.
      */
-    public function attempt(string $name, ?BreakerConfig $config = null): Decision
+    public function permit(string $name, ?BreakerConfig $config = null): Decision
     {
         $config ??= BreakerConfig::defaults();
         $state = $this->state($name);

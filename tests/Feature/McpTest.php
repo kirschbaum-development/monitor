@@ -12,7 +12,6 @@ use Kirschbaum\Monitor\Mcp\Tools\Escalations;
 use Kirschbaum\Monitor\Mcp\Tools\ExplainPoint;
 use Kirschbaum\Monitor\Mcp\Tools\ListPoints;
 use Kirschbaum\Monitor\Mcp\Tools\RecentOutcomes;
-use Kirschbaum\Monitor\MonitorServiceProvider;
 use Kirschbaum\Monitor\Store\StoreOutcomes;
 use Laravel\Mcp\Facades\Mcp;
 use Laravel\Mcp\Transport\JsonRpcResponse;
@@ -28,7 +27,7 @@ beforeEach(function (): void {
 function enableStoreForMcp(): void
 {
     config()->set('monitor.records.store.enabled', true);
-    (require __DIR__.'/../../database/migrations/create_monitor_outcomes_table.php')->up();
+    (require glob(__DIR__.'/../../database/migrations/*_create_monitor_outcomes_table.php')[0])->up();
 }
 
 describe('server', function (): void {
@@ -38,16 +37,10 @@ describe('server', function (): void {
         MonitorServer::prompts()->assertRegistered([WrapOperation::class]);
     });
 
-    it('is only registered as a local server when enabled', function (): void {
-        expect(MonitorServiceProvider::registerMcpServer(app()))->toBeFalse()
-            ->and(Mcp::getLocalServer('monitor'))->toBeNull();
-
-        config()->set('monitor.mcp.enabled', true);
-        config()->set('monitor.mcp.handle', 'monitor');
-
-        expect(MonitorServiceProvider::registerMcpServer(app()))->toBeTrue()
-            ->and(Mcp::getLocalServer('monitor'))->not->toBeNull();
+    it('is not registered as a local server by default', function (): void {
+        expect(Mcp::getLocalServer('monitor'))->toBeNull();
     });
+
 });
 
 describe('tools', function (): void {

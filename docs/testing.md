@@ -8,6 +8,7 @@
 - [Tips](#tips)
 - [Pest Expectations](#pest-expectations)
 - [The PHPStan Rule](#the-phpstan-rule)
+- [The Package's Own Tests](#the-packages-own-tests)
 
 ## Introduction
 
@@ -23,20 +24,16 @@ $fake = Monitor::fake();
 
 The fake replaces the runner and records every `Outcome`. Control points still execute for real: policies run, corrections run, escalations run, records are written. What changes is that every outcome is kept, and a point can be given a canned result.
 
-The fake is also the facade root, so assertions are made through `Monitor::` directly.
+It follows the framework's fakes: `MonitorFake` implements `Illuminate\Support\Testing\Fakes\Fake`, so `Monitor::isFake()` is true afterwards; calling `Monitor::fake()` twice returns the same fake rather than wrapping it; and the fake is the facade root, so assertions are made through `Monitor::` directly.
 
 ### Canned Values and Failures
 
 `returning()` makes a point succeed with a value without running its callback:
 
 ```php
-Monitor::fake()->returning('payment.charge', ChargeResult::settled());
-
-// or several at once
-Monitor::fake([
-    'payment.charge' => ChargeResult::settled(),
-    'payment.refund' => null,
-]);
+Monitor::fake()
+    ->returning('payment.charge', ChargeResult::settled())
+    ->returning('payment.refund', null);
 ```
 
 `failing()` makes the point's callback throw, so the point's own corrections, retries, breaker and escalation are exercised as they would be on a real failure:
@@ -49,39 +46,47 @@ $result = $this->service->charge($invoice);   // goes through recover(CardDeclin
 Monitor::assertRecovered('payment.charge', from: CardDeclined::class);
 ```
 
-Registering a point with one replaces any earlier registration of the other. Points that are registered with neither run their callback.
+Registering a point with one replaces any earlier registration of the other. Points that are registered with neither run their callback. Wherever a point name is passed, a backed enum is accepted in place of the string.
 
 ### Reading Outcomes
 
-```php
-Monitor::outcomes();                    // every Outcome, in order
-Monitor::outcomes('payment.charge');    // for one point
+`outcomes()` returns an `Illuminate\Support\Collection` of `Outcome` objects, in the order they ended:
 
-$fake->forget();                        // discard what was recorded
+```php
+Monitor::outcomes();                                   // every Outcome
+Monitor::outcomes('payment.charge');                   // for one point
+Monitor::outcomes()->where('status', Status::Escalated)->count();
+
+$fake->forget();                                       // discard what was recorded
 ```
 
 ## Assertions
 
-Every assertion returns the fake, so they chain.
+Every assertion returns the fake, so they chain. `$point` is a string or a backed enum. Where an assertion takes a `Closure`, it receives the `Outcome` and returns a bool.
 
 | Assertion | Passes when |
 | --- | --- |
-| `assertRan(string $point, ?Closure $callback = null)` | The point ran at least once; with a callback, at least one `Outcome` satisfies it. |
-| `assertRanTimes(string $point, int $times)` | The point ran exactly that many times. |
-| `assertNeverRan(string $point)` | The point did not run. |
-| `assertSucceeded(string $point, ?Closure $callback = null)` | An outcome of the point is `succeeded`, and satisfies the callback if given. |
-| `assertRecovered(string $point, ?string $from = null)` | An outcome is `recovered`; with `$from`, recovered from that exception class. |
-| `assertEscalated(string $point, ?string $with = null)` | An outcome is `escalated`; with `$with`, the escaped exception is an instance of that class. |
-| `assertRefused(string $point)` | An outcome is `refused` by a breaker. |
-| `assertRetried(string $point, ?int $times = null)` | An outcome took more than one attempt; with `$times`, exactly `$times + 1` attempts. |
-| `assertLimitBreached(string $point, string $limit)` | An outcome breached the named limit, `duration` or `attempts`. |
+| `assertRan($point, ?Closure $callback = null)` | The point ran at least once; with a callback, at least one `Outcome` satisfies it. |
+| `assertNotRan($point)` | The point did not run. |
+| `assertRanOnce($point)` | The point ran exactly once. |
+| `assertRanTimes($point, int $times)` | The point ran exactly that many times. |
+| `assertSucceeded($point, ?Closure $callback = null)` | An outcome of the point is `succeeded`, and satisfies the callback if given. |
+| `assertRecovered($point, Closure\|string\|null $from = null)` | An outcome is `recovered`; with a class, recovered from that exception class; with a closure, one that satisfies it. |
+| `assertNotRecovered($point, Closure\|string\|null $from = null)` | No outcome of the point is `recovered`, or none from that class, or none satisfying the closure. |
+| `assertEscalated($point, Closure\|string\|null $with = null)` | An outcome is `escalated`; with a class, the escaped exception is an instance of it; with a closure, one that satisfies it. |
+| `assertNotEscalated($point, Closure\|string\|null $with = null)` | No outcome of the point is `escalated`, or none with that class, or none satisfying the closure. |
+| `assertRefused($point)` | An outcome is `refused` by a breaker. |
+| `assertNotRefused($point)` | No outcome of the point is `refused`. |
+| `assertRetried($point, ?int $times = null)` | An outcome took more than one attempt; with `$times`, exactly `$times + 1` attempts. |
+| `assertNotRetried($point)` | No outcome of the point took more than one attempt. |
+| `assertLimitBreached($point, string $limit)` | An outcome breached the named limit, `duration` or `attempts`. |
 | `assertNothingEscalated()` | No recorded outcome escalated. |
 | `assertNothingRan()` | Nothing was recorded. |
 
 ```php
 Monitor::assertRan('payment.charge', fn (Outcome $o): bool => $o->context['invoice'] === 48211)
     ->assertSucceeded('payment.charge')
-    ->assertNeverRan('payment.refund')
+    ->assertNotRan('payment.refund')
     ->assertNothingEscalated();
 ```
 
@@ -113,6 +118,8 @@ expect(Monitor::breaker()->isOpen('stripe'))->toBeFalse();
 **Events.** `Event::fake([...])` with the event classes in [Records](records.md#events) asserts on transitions without reading a log.
 
 **Records.** `timacdonald/log-fake` captures records: after `LogFake::bind()`, `Log::channel()->logs()` holds every line with its level, message and context.
+
+**The store.** Rows are written after the request or job, so a test that reads the table first calls `app(Kirschbaum\Monitor\Store\StoreOutcomes::class)->flush()`; `pending()` says how many outcomes are waiting. See [Store](store.md#when-rows-are-written).
 
 ## Pest Expectations
 
@@ -160,7 +167,7 @@ parameters:
             - App\Services\Payments
 ```
 
-A class in one of those namespaces that does not extend `ControlPoint`, does not implement `Escalation` or `Policy`, is not abstract, and contains no `Monitor::control()` or `new Control()` call is reported:
+A class in one of those namespaces that does not extend `ControlPoint`, does not implement `Contracts\Escalation` or `Contracts\Policy`, is not abstract, and contains no `Monitor::control()` or `new Control()` call is reported:
 
 ```
 App\Services\Payments\LegacyCharger sits in a critical namespace but is not a control point and calls none.
@@ -168,3 +175,27 @@ App\Services\Payments\LegacyCharger sits in a critical namespace but is not a co
 ```
 
 The error identifier is `monitor.uncontrolled`. The rule reads its namespaces from the PHPStan configuration rather than from `config/monitor.php`, because PHPStan runs without the application; keep the two lists the same.
+
+## The Package's Own Tests
+
+If you contribute to the package, the suite is Pest on Orchestra Testbench:
+
+```bash
+composer test           # full suite, in parallel
+composer test-coverage  # with the 100% coverage floor enforced
+composer lint           # Pint, Rector, PHPStan (level 10, no baseline)
+composer rector:check   # what Rector would change, without changing it
+composer mutate         # mutation testing (Pest); local only, not run in CI
+composer preflight      # everything CI runs
+```
+
+Coverage needs a driver loaded in the CLI. With [Laravel Herd](https://herd.laravel.com), `herd coverage vendor/bin/pest --coverage --min=100` runs the suite under Xdebug with the same floor CI enforces with pcov; without a driver Pest reports no coverage. The PHPUnit configuration raises the memory limit, which the in-process PHPStan rule test needs.
+
+Conventions worth knowing:
+
+- Tests live under `tests/Feature`, `tests/Unit` and `tests/Performance`, all bound to `Tests\TestCase`, which registers the Redactor, MCP and Monitor providers and calls `Http::preventingStrayRequests()`.
+- Exceptions and escalations shared across suites live in `tests/Fixtures`; `failingTimes()` in `tests/Pest.php` builds a callback that fails a given number of times.
+- `workbench/app/ControlPoints` holds control points the inventory, MCP and PHPStan tests scan. Several are deliberately wrong, one per rule: a duplicate name, an invalid name, a point with no escalation, a catch-all with no escalation, a `control()` that reads a constructor argument, a class in the critical namespace with no control point, a class whose file name does not match, and an inline point with a computed name. `ChargeCard` is the complete one.
+- `tests/Performance` holds relative timing guards that skip themselves under coverage instrumentation through `runningWithCoverage()`.
+- The PHPStan rule is tested twice: in-process through PHPStan's `RuleTestCase`, which coverage sees, and by running `vendor/bin/phpstan` against a fixture configuration, which proves the extension file wires up.
+- The pre-commit hook runs the same checks as `composer preflight`, and the commit-message hook keeps subjects to one line of at most 72 characters; `composer install` wires both up through `core.hooksPath`.

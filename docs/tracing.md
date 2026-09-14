@@ -48,6 +48,8 @@ Monitor::trace()->clear();       // forget the trace
 
 The ID lives in Context under the key `trace_id`.
 
+`Trace::generate()` returns a fresh ID without storing it. `Kirschbaum\Monitor\Trace\TraceParent` builds and reads the header for clients the middleware does not cover: `TraceParent::format($traceId)` returns a `00-<trace id>-<span id>-01` header, `TraceParent::parse($header)` returns the trace ID inside a valid one or `null`, and `TraceParent::spanId()` returns a random 16-character span ID.
+
 ## HTTP Requests
 
 ### Incoming: the StartTrace Middleware
@@ -107,7 +109,7 @@ A job that arrives without a trace, because it was dispatched from a process tha
 
 ## Console
 
-In console, the service provider starts a trace when the application boots, so a command's records share one ID. Turn that off with `trace.console`:
+In console, a trace starts when an artisan command starts, on Laravel's `CommandStarting` event, so a command's records share one ID and nothing runs at provider boot. Turn that off with `trace.console`:
 
 ```php
 'trace' => [

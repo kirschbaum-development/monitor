@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Limits;
 
 use Closure;
+use Kirschbaum\Monitor\Contracts\Limit;
 
 /**
  * A post-condition on the returned value. The only limit that fails a run,

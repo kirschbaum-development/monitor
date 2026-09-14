@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Analysis\PhpStan;
 
+use Kirschbaum\Monitor\Contracts\Escalation;
+use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Control;
 use Kirschbaum\Monitor\ControlPoint;
-use Kirschbaum\Monitor\Escalations\Escalation;
 use Kirschbaum\Monitor\Facades\Monitor as MonitorFacade;
 use Kirschbaum\Monitor\Monitor;
-use Kirschbaum\Monitor\Policies\Policy;
 use PhpParser\Node;
 use PhpParser\NodeFinder;
 use PHPStan\Analyser\Scope;
@@ -32,12 +32,12 @@ use PHPStan\Rules\RuleErrorBuilder;
  *
  * @implements Rule<InClassNode>
  */
-final readonly class CriticalNamespaceRule implements Rule
+class CriticalNamespaceRule implements Rule
 {
     /**
      * @param  list<string>  $namespaces
      */
-    public function __construct(private array $namespaces) {}
+    public function __construct(private readonly array $namespaces) {}
 
     public function getNodeType(): string
     {

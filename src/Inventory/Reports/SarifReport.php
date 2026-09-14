@@ -11,7 +11,7 @@ use Kirschbaum\Monitor\Inventory\Rules\Rules;
 /**
  * SARIF 2.1.0, so the findings show up as annotations in code scanning.
  */
-final class SarifReport
+class SarifReport
 {
     public function render(Inventory $inventory, string $basePath): string
     {

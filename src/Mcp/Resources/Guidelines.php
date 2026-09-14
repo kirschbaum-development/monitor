@@ -7,7 +7,7 @@ namespace Kirschbaum\Monitor\Mcp\Resources;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Resource;
 
-final class Guidelines extends Resource
+class Guidelines extends Resource
 {
     protected string $name = 'guidelines';
 

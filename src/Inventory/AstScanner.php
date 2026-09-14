@@ -18,7 +18,7 @@ use PhpParser\ParserFactory;
  * Reads a PHP file without executing it: the classes it declares, and every
  * Monitor::control('name') or new Control('name') it contains.
  */
-final class AstScanner
+class AstScanner
 {
     public function scan(string $path): ScannedFile
     {

@@ -16,8 +16,10 @@ use Throwable;
 /**
  * The one shape every record has. Field names here are the schema; see
  * resources/schema/record-1.json.
+ *
+ * @internal
  */
-final class Record
+class Record
 {
     public const string SCHEMA = 'monitor/1';
 

@@ -16,9 +16,9 @@ use Throwable;
  * replaced because it was long. Prose is redacted line by line for the same
  * reason. Resources are package files and pass through untouched.
  */
-final readonly class ResponseRedactor
+class ResponseRedactor
 {
-    public function __construct(private ?string $profile) {}
+    public function __construct(private readonly ?string $profile) {}
 
     /**
      * @param  iterable<JsonRpcResponse>|JsonRpcResponse  $response

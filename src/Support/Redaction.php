@@ -6,13 +6,16 @@ namespace Kirschbaum\Monitor\Support;
 
 use Illuminate\Support\Facades\Config;
 use Kirschbaum\Redactor\Facades\Redactor;
+use Throwable;
 
 /**
  * Redacts the parts of a record that carry application data: the context and
  * any exception messages. Identifiers, names and numbers are left alone so a
  * record stays joinable.
+ *
+ * @internal
  */
-final class Redaction
+class Redaction
 {
     /**
      * @param  array<string, mixed>  $record
@@ -45,7 +48,12 @@ final class Redaction
             return $context;
         }
 
-        $redacted = Redactor::profile($profile)->withoutMarkers()->redactSafely($context);
+        try {
+            $redacted = Redactor::profile($profile)->withoutMarkers()->redactSafely($context);
+        } catch (Throwable) {
+            // A record must never fail a control point; without a redactor the context is dropped rather than leaked.
+            return ['_redaction' => 'unavailable'];
+        }
 
         return is_array($redacted) ? $redacted : [];
     }
@@ -63,8 +71,14 @@ final class Redaction
         }
 
         foreach (['message', 'previous'] as $key) {
-            if (isset($exception[$key])) {
+            if (! isset($exception[$key])) {
+                continue;
+            }
+
+            try {
                 $exception[$key] = Redactor::profile($profile)->withoutMarkers()->redactSafely($exception[$key]);
+            } catch (Throwable) {
+                $exception[$key] = '[redaction unavailable]';
             }
         }
 

@@ -7,7 +7,7 @@ namespace Kirschbaum\Monitor\Events;
 use Kirschbaum\Monitor\RunInfo;
 use Throwable;
 
-final readonly class PointRetried
+class PointRetried
 {
     /**
      * @param  int  $attempt  the attempt that just failed

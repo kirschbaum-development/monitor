@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Inventory\Rules;
 
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;
 
@@ -11,7 +12,7 @@ use Kirschbaum\Monitor\Inventory\Inventory;
  * A point whose name is computed cannot be inventoried, tested by name or
  * found in the records by anyone reading the code.
  */
-final class DynamicName implements Rule
+class DynamicName implements Rule
 {
     public function name(): string
     {

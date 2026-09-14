@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Limits;
 
+use Kirschbaum\Monitor\Contracts\Limit;
+
 /**
  * The whole run, attempts included, should finish inside this many seconds.
  *

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Inventory\Rules;
 
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;
 
@@ -11,7 +12,7 @@ use Kirschbaum\Monitor\Inventory\Inventory;
  * recover(Throwable::class) with no escalation swallows everything. It is
  * usually a risk analysis that has not been done.
  */
-final class CatchAllWithoutEscalation implements Rule
+class CatchAllWithoutEscalation implements Rule
 {
     public function name(): string
     {

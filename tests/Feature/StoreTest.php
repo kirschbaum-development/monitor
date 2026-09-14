@@ -2,15 +2,21 @@
 
 declare(strict_types=1);
 
+use Illuminate\Contracts\Http\Kernel;
 use Illuminate\Contracts\Queue\Job;
+use Illuminate\Http\Response;
 use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\Looping;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Sleep;
-use Kirschbaum\Monitor\Console\OutcomesCommand;
+use Kirschbaum\Monitor\Console\Commands\OutcomesCommand;
 use Kirschbaum\Monitor\Facades\Monitor;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 use Kirschbaum\Monitor\Store\StoreOutcomes;
+use Symfony\Component\Console\Input\ArrayInput;
+use Symfony\Component\Console\Output\NullOutput;
 use Tests\Fixtures\CardDeclined;
 use Tests\Fixtures\Fatal;
 use TiMacDonald\Log\LogFake;
@@ -18,7 +24,7 @@ use TiMacDonald\Log\LogFake;
 function enableStore(): void
 {
     config()->set('monitor.records.store.enabled', true);
-    (require __DIR__.'/../../database/migrations/create_monitor_outcomes_table.php')->up();
+    (require glob(__DIR__.'/../../database/migrations/*_create_monitor_outcomes_table.php')[0])->up();
 }
 
 describe('outcome store', function (): void {
@@ -38,7 +44,7 @@ describe('outcome store', function (): void {
 
         expect(resolve(StoreOutcomes::class)->pending())->toBe(4)->and(DB::table('monitor_outcomes')->count())->toBe(0);
 
-        app()->terminate();
+        resolve(StoreOutcomes::class)->flush();
 
         expect(resolve(StoreOutcomes::class)->pending())->toBe(0)->and(DB::table('monitor_outcomes')->count())->toBe(4);
 
@@ -58,6 +64,39 @@ describe('outcome store', function (): void {
             ->and($child['parent_run_id'])->toBe($parent['run_id'])
             ->and($child['exception_message'])->not->toContain('Xk9vB2mQ7pL4sN8wR1tY6uZ3aC5dF0gHjE2bV')
             ->and($parent['status'])->toBe('escalated');
+    });
+
+    it('writes when the buffer limit is reached', function (): void {
+        enableStore();
+
+        for ($i = 0; $i < StoreOutcomes::BUFFER_LIMIT; $i++) {
+            Monitor::control('payment.charge')->run(fn (): int => 1);
+        }
+
+        expect(resolve(StoreOutcomes::class)->pending())->toBe(0)->and(DB::table('monitor_outcomes')->count())->toBe(StoreOutcomes::BUFFER_LIMIT);
+    });
+
+    it('flushes at the end of a request and a command', function (): void {
+        enableStore();
+        Route::get('/charge', fn (): int => Monitor::control('payment.charge')->run(fn (): int => 1));
+
+        $this->get('/charge')->assertOk();
+        resolve(Kernel::class)->terminate(request(), new Response);
+
+        expect(DB::table('monitor_outcomes')->count())->toBe(1);
+
+        Monitor::control('payment.charge')->run(fn (): int => 1);
+        resolve('events')->dispatch(new Looping('sync', 'default'));
+
+        expect(DB::table('monitor_outcomes')->count())->toBe(2);
+
+        $console = resolve(Illuminate\Contracts\Console\Kernel::class);
+        $input = new ArrayInput(['command' => 'list']);
+        $console->handle($input, new NullOutput);
+        Monitor::control('payment.charge')->run(fn (): int => 1);
+        $console->terminate($input, 0);
+
+        expect(DB::table('monitor_outcomes')->count())->toBe(3);
     });
 
     it('flushes after a queued job finishes', function (): void {

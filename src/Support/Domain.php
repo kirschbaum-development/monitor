@@ -12,8 +12,10 @@ use Illuminate\Support\Facades\Config;
  * The map in config('monitor.domains.map') is tried in order. A null value
  * takes the namespace segment right after the prefix; a string value is used
  * as-is. Nothing matching yields the configured fallback.
+ *
+ * @internal
  */
-final class Domain
+class Domain
 {
     public static function resolve(string $class): string
     {

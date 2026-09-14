@@ -6,7 +6,7 @@ namespace Kirschbaum\Monitor\Inventory\Reports;
 
 use Kirschbaum\Monitor\Inventory\Inventory;
 
-final class JsonReport
+class JsonReport
 {
     public function render(Inventory $inventory): string
     {

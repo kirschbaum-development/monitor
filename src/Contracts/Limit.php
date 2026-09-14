@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Limits;
+namespace Kirschbaum\Monitor\Contracts;
 
 /**
  * A threshold a run must stay within. Whether a breach is recorded or

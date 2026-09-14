@@ -7,6 +7,7 @@ namespace Kirschbaum\Monitor\Policies;
 use Closure;
 use Illuminate\Database\DeadlockException;
 use Illuminate\Support\Facades\DB;
+use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Policies\Concerns\FiltersExceptions;
 use Kirschbaum\Monitor\Run;
 
@@ -17,31 +18,25 @@ use Kirschbaum\Monitor\Run;
  * Deadlocks are retried by default. Anything else is not, because most failures
  * inside a transaction are not made better by repeating them.
  */
-final class Transaction implements Policy
+class Transaction implements Policy
 {
     use FiltersExceptions;
 
-    private int $retries = 0;
+    private readonly int $retries;
 
     private ?string $connection = null;
 
     private int $backoffMs = 0;
 
-    public function __construct()
+    final public function __construct(int $retries = 0)
     {
+        $this->retries = max(0, $retries);
         $this->only = [DeadlockException::class];
     }
 
-    public static function retries(int $retries): self
+    public static function retries(int $retries): static
     {
-        return (new self)->setRetries($retries);
-    }
-
-    public function setRetries(int $retries): self
-    {
-        $this->retries = max(0, $retries);
-
-        return $this;
+        return new static($retries);
     }
 
     public function connection(?string $name): self

@@ -27,9 +27,9 @@ Everything else can be read as you need it.
 | [Tracing](tracing.md) | The trace ID, `traceparent` and the legacy header, the middleware, outgoing propagation with `Http::traced()`, queued jobs and console. |
 | [Breakers](breakers.md) | The circuit state machine, the standalone `Monitor::breaker()` API, and the `CheckBreakers` route middleware. |
 | [Store](store.md) | The optional outcomes table, when it is written, `monitor:outcomes`, `monitor:prune`, and retention. |
-| [Inventory](inventory.md) | `monitor:points`, the rules `--check` enforces, table, JSON and SARIF output, and `monitor:explain`. |
-| [Testing](testing.md) | `Monitor::fake()` and its assertions, the Pest expectations, the PHPStan rule, and the package's own conventions. |
-| [Agents](agents.md) | The guidelines shipped for Laravel Boost, the MCP server's tools, resources and prompt, and `make:control-point`. |
+| [Inventory](inventory.md) | `monitor:points`, the rules `--check` enforces, table, JSON and SARIF output, `monitor:explain`, and `make:control-point`. |
+| [Testing](testing.md) | `Monitor::fake()` and its assertions, the Pest expectations, the PHPStan rule, and the package's own tests. |
+| [Agents](agents.md) | The guideline and skill shipped for Laravel Boost, and the MCP server's tools, resources and prompt. |
 | [Configuration](configuration.md) | Every key in `config/monitor.php` with its type, default and environment variable. |
 | [Extending](extending.md) | Writing a policy, an escalation, an inventory rule, and listening to the events. |
 | [Upgrading](upgrading.md) | Every 0.1 surface and its 1.0 replacement. |

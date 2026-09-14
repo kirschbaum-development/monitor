@@ -13,14 +13,16 @@ use Kirschbaum\Monitor\Policies\Breaker;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 use Kirschbaum\Monitor\Support\Lists;
 use Kirschbaum\Monitor\Support\Profiles;
+use Kirschbaum\Monitor\Support\Redaction;
 use Kirschbaum\Monitor\Testing\Expectations;
+use Kirschbaum\Monitor\Testing\MonitorFake;
 use Kirschbaum\Redactor\Facades\Redactor;
 use Laravel\Mcp\Transport\JsonRpcResponse;
 use Tests\Fixtures\Fatal;
 use Workbench\Monitor\ControlPoints\Filings\Unnamed;
 
 /**
- * Edges the feature suites do not reach on their own.
+ * Behaviour at the edges: unusual inputs, missing tables, defensive branches.
  */
 describe('edges', function (): void {
     it('lets a control change its origin and report escalation presence', function (): void {
@@ -142,5 +144,32 @@ describe('response redactor edges', function (): void {
         Redactor::shouldReceive('inspect')->andThrow(new Fatal('broken profile'));
 
         expect((new ResponseRedactor('observability'))->data(['a' => 1]))->toBe(['redaction' => 'failed']);
+    });
+
+    it('serialises the other value objects to json', function (): void {
+        config()->set('monitor.discovery.paths', [realpath(__DIR__.'/../../workbench/app')]);
+        $inventory = resolve(Discovery::class)->build();
+
+        expect(json_decode(json_encode($inventory->find('payment.charge')), true)['point'])->toBe('payment.charge')
+            ->and(json_decode(json_encode($inventory->findings()[0]), true))->toHaveKey('rule')
+            ->and(json_decode(json_encode(Monitor::breaker()->state('x')), true)['state'])->toBe('closed');
+    });
+
+    it('drops context rather than leaking it when the redactor is unavailable', function (): void {
+        Redactor::shouldReceive('profile')->andThrow(new Fatal('no redactor'));
+
+        expect(Redaction::context(['password' => 'x']))->toBe(['_redaction' => 'unavailable'])
+            ->and(Redaction::exception(['class' => 'E', 'message' => 'secret'])['message'])->toBe('[redaction unavailable]');
+    });
+
+    it('refuses to fake without a facade application', function (): void {
+        $app = Monitor::getFacadeApplication();
+        Monitor::setFacadeApplication(null);
+
+        try {
+            expect(fn (): MonitorFake => Monitor::fake())->toThrow(RuntimeException::class, 'facade application');
+        } finally {
+            Monitor::setFacadeApplication($app);
+        }
     });
 });

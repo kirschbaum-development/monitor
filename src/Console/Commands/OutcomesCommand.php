@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor\Console;
+namespace Kirschbaum\Monitor\Console\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Date;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 
-final class OutcomesCommand extends Command
+class OutcomesCommand extends Command
 {
     protected $signature = 'monitor:outcomes
         {--point= : Only this control point}
@@ -25,7 +25,7 @@ final class OutcomesCommand extends Command
     public function handle(OutcomeStore $store): int
     {
         if (! $store->enabled()) {
-            $this->components->error('The outcome store is disabled. Set MONITOR_STORE=true and run the migration.');
+            $this->components->error('The outcome store is disabled. Set MONITOR_STORE_ENABLED=true and run the migration.');
 
             return self::FAILURE;
         }
@@ -75,6 +75,11 @@ final class OutcomesCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * Parse a window like 15m, 2h or 7d into the moment it starts.
+     *
+     * @internal
+     */
     public static function parseSince(string $value): ?Carbon
     {
         if (preg_match('/^(\d+)([mhd])$/', trim($value), $m) !== 1) {

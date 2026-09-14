@@ -7,7 +7,7 @@ namespace Kirschbaum\Monitor\Trace;
 /**
  * The W3C traceparent header: version-traceid-spanid-flags.
  */
-final class TraceParent
+class TraceParent
 {
     private const string PATTERN = '/^([0-9a-f]{2})-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})$/i';
 

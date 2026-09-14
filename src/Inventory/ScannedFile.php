@@ -8,6 +8,9 @@ namespace Kirschbaum\Monitor\Inventory;
  * What one PHP file contributes: the classes it declares and the inline
  * control points it calls, with the class each call sits in.
  */
+/**
+ * @internal
+ */
 final readonly class ScannedFile
 {
     /**

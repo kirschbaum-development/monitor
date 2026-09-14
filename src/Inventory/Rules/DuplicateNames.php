@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Inventory\Rules;
 
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;
 use Kirschbaum\Monitor\Inventory\PointDescription;
@@ -12,7 +13,7 @@ use Kirschbaum\Monitor\Inventory\PointDescription;
  * A name is the join key across code, records and tests; two points sharing
  * one cannot be told apart anywhere downstream.
  */
-final class DuplicateNames implements Rule
+class DuplicateNames implements Rule
 {
     public function name(): string
     {

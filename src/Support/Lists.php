@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Support;
 
-final class Lists
+/**
+ * @internal
+ */
+class Lists
 {
     /**
      * The array-valued items of a value, as a list of string-keyed arrays.

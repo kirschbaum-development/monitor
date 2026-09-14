@@ -7,7 +7,7 @@ namespace Kirschbaum\Monitor\Mcp\Resources;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Resource;
 
-final class RecordSchema extends Resource
+class RecordSchema extends Resource
 {
     protected string $name = 'record_schema';
 

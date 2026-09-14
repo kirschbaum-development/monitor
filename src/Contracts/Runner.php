@@ -2,9 +2,11 @@
 
 declare(strict_types=1);
 
-namespace Kirschbaum\Monitor;
+namespace Kirschbaum\Monitor\Contracts;
 
 use Closure;
+use Kirschbaum\Monitor\Control;
+use Kirschbaum\Monitor\Outcome;
 
 /**
  * Executes a control point. The live runner builds a Run; the fake records.

@@ -4,45 +4,53 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Store;
 
-use Illuminate\Contracts\Foundation\Application;
+use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Queue\Events\JobExceptionOccurred;
 use Illuminate\Queue\Events\JobProcessed;
+use Illuminate\Queue\Events\Looping;
+use Illuminate\Queue\Events\WorkerStopping;
 use Illuminate\Support\Facades\Log;
 use Kirschbaum\Monitor\Events\PointEnded;
 use Kirschbaum\Monitor\Outcome;
 use Throwable;
 
 /**
- * Buffers outcomes and writes them after the response is sent or the job has
- * finished. A failing write is logged once per process and never rethrown:
- * the store is never the reason a control point fails.
+ * Buffer outcomes and write them after the response is sent, the command has
+ * finished, or the job has completed. A failing write is logged once per
+ * process and never rethrown: the store is never the reason a point fails.
  */
-final class StoreOutcomes
+class StoreOutcomes
 {
+    /**
+     * How many outcomes to hold before writing regardless of lifecycle, so a
+     * long-running process never keeps an unbounded buffer.
+     */
+    public const BUFFER_LIMIT = 100;
+
     /** @var list<Outcome> */
-    private array $buffer = [];
+    protected array $buffer = [];
 
-    private bool $flushRegistered = false;
+    protected bool $failureReported = false;
 
-    private bool $failureReported = false;
-
-    public function __construct(
-        private readonly OutcomeStore $store,
-        private readonly Application $app,
-    ) {}
+    public function __construct(protected OutcomeStore $store) {}
 
     /**
      * @return array<class-string, string>
      */
-    public function subscribe(): array
+    public function subscribe(Dispatcher $events): array
     {
         return [
             PointEnded::class => 'buffer',
             JobProcessed::class => 'flush',
             JobExceptionOccurred::class => 'flush',
+            Looping::class => 'flush',
+            WorkerStopping::class => 'flush',
         ];
     }
 
+    /**
+     * Hold an outcome until the next flush.
+     */
     public function buffer(PointEnded $event): void
     {
         if (! $this->store->enabled()) {
@@ -51,12 +59,14 @@ final class StoreOutcomes
 
         $this->buffer[] = $event->outcome;
 
-        if (! $this->flushRegistered) {
-            $this->flushRegistered = true;
-            $this->app->terminating(fn (): int => $this->flush());
+        if (count($this->buffer) >= self::BUFFER_LIMIT) {
+            $this->flush();
         }
     }
 
+    /**
+     * Write everything held so far and return how many rows were written.
+     */
     public function flush(): int
     {
         if ($this->buffer === []) {
@@ -81,6 +91,9 @@ final class StoreOutcomes
         }
     }
 
+    /**
+     * How many outcomes are waiting to be written.
+     */
     public function pending(): int
     {
         return count($this->buffer);

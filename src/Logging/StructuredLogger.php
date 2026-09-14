@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor\Logging;
 
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Traits\Conditionable;
 use Kirschbaum\Monitor\Support\Domain;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerTrait;
@@ -15,8 +16,9 @@ use Stringable;
  * origin class and its domain as context fields and a readable prefix on the
  * message, so lines from anywhere in a domain group together in a log backend.
  */
-final class StructuredLogger implements LoggerInterface
+class StructuredLogger implements LoggerInterface
 {
+    use Conditionable;
     use LoggerTrait;
 
     private readonly string $origin;

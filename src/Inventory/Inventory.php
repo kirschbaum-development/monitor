@@ -8,7 +8,7 @@ namespace Kirschbaum\Monitor\Inventory;
  * Every control point the scan found, every class it saw, and the findings
  * the rules raised.
  */
-final class Inventory
+class Inventory
 {
     /**
      * @param  list<PointDescription>  $points

@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Inventory\Rules;
 
+use Kirschbaum\Monitor\Contracts\Rule;
 use Kirschbaum\Monitor\Inventory\Finding;
 use Kirschbaum\Monitor\Inventory\Inventory;
 use Kirschbaum\Monitor\Support\PointName;
 
-final class NamePattern implements Rule
+class NamePattern implements Rule
 {
     public function name(): string
     {
