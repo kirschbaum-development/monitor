@@ -14,7 +14,7 @@ use RuntimeException;
  * @method static \Kirschbaum\Monitor\ControlStack stack()
  * @method static \Kirschbaum\Monitor\Trace\Trace trace()
  * @method static \Kirschbaum\Monitor\Breaker\CircuitBreaker breaker()
- * @method static \Kirschbaum\Monitor\Logging\StructuredLogger log(string|object $origin)
+ * @method static \Kirschbaum\Monitor\Logging\StructuredLogger log(string|object|null $origin = null)
  * @method static \Kirschbaum\Monitor\Testing\MonitorFake returning(string|\BackedEnum $point, mixed $value)
  * @method static \Kirschbaum\Monitor\Testing\MonitorFake failing(string|\BackedEnum $point, \Throwable $exception)
  * @method static \Illuminate\Support\Collection<int, \Kirschbaum\Monitor\Outcome> outcomes(string|\BackedEnum|null $point = null)

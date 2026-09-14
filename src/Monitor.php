@@ -43,8 +43,8 @@ class Monitor
     /**
      * A PSR-3 logger bound to an origin, so its records carry origin and domain.
      */
-    public function log(string|object $origin): StructuredLogger
+    public function log(string|object|null $origin = null): StructuredLogger
     {
-        return new StructuredLogger($origin);
+        return new StructuredLogger($origin ?? $this->stack()->currentOrigin() ?? Monitor::class);
     }
 }

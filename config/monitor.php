@@ -165,6 +165,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Once
+    |--------------------------------------------------------------------------
+    |
+    | Where the once() policy keeps its idempotency keys. Null uses the default
+    | cache store; the keys are shared exactly as far as that store is.
+    |
+    */
+
+    'once' => [
+        'store' => env('MONITOR_ONCE_STORE'),
+        'prefix' => 'monitor:once:',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Records
     |--------------------------------------------------------------------------
     |

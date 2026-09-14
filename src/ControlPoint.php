@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Kirschbaum\Monitor;
 
 use Illuminate\Container\Container;
+use Illuminate\Foundation\Bus\PendingDispatch;
 use Kirschbaum\Monitor\Attributes\Point;
 use Kirschbaum\Monitor\Exceptions\InvalidControlPoint;
+use Kirschbaum\Monitor\Queue\RunControlPoint;
 use ReflectionClass;
 use Throwable;
 
@@ -67,6 +69,23 @@ abstract class ControlPoint
         $instance = static::make(...$arguments);
 
         return $instance->toControl()->attempt(fn (): mixed => static::invoke($instance));
+    }
+
+    /**
+     * Construct the point and run it on the queue. The queue owns the job's
+     * retries; the point owns its policies, corrections and records.
+     */
+    public static function dispatch(mixed ...$arguments): PendingDispatch
+    {
+        return dispatch(new RunControlPoint(static::make(...$arguments)));
+    }
+
+    /**
+     * Construct the point and run it through the queue synchronously.
+     */
+    public static function dispatchSync(mixed ...$arguments): mixed
+    {
+        return dispatch_sync(new RunControlPoint(static::make(...$arguments)));
     }
 
     /**

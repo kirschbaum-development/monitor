@@ -37,6 +37,7 @@ return new class extends Migration
             $table->json('limits_breached');
             $table->json('policies');
             $table->json('timeline');
+            $table->timestamp('started_at', 3);
             $table->timestamp('ended_at', 3)->index();
         });
     }

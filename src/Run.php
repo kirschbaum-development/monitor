@@ -4,13 +4,17 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
+use Carbon\CarbonImmutable;
 use Closure;
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
+use Kirschbaum\Monitor\Contracts\Correction;
 use Kirschbaum\Monitor\Contracts\Escalation;
 use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Events\EscalationFailed;
+use Kirschbaum\Monitor\Events\EscalationThrottled;
 use Kirschbaum\Monitor\Events\PointEnded;
 use Kirschbaum\Monitor\Events\PointEscalated;
 use Kirschbaum\Monitor\Events\PointLimitBreached;
@@ -34,6 +38,8 @@ class Run
     private RunInfo $info;
 
     private float $startedAt;
+
+    private CarbonImmutable $startedAtClock;
 
     private int $attempt = 1;
 
@@ -72,6 +78,14 @@ class Run
         $this->dispatchEnd($outcome);
 
         return $outcome;
+    }
+
+    /**
+     * The identity of this run, for policies that need the point or run id.
+     */
+    public function info(): RunInfo
+    {
+        return $this->info;
     }
 
     public function attempt(): int
@@ -118,10 +132,11 @@ class Run
     private function begin(): void
     {
         $this->startedAt = hrtime(true) / 1e6;
+        $this->startedAtClock = CarbonImmutable::now();
         $parentId = $this->stack->currentRunId();
         $id = (string) Str::ulid();
 
-        $this->stack->push($this->control->name(), $id);
+        $this->stack->push($this->control->name(), $id, $this->control->origin());
 
         $this->info = new RunInfo(
             point: $this->control->name(),
@@ -178,7 +193,14 @@ class Run
             $this->note('recovering', ['risk' => $risk['class']]);
 
             try {
-                $value = $risk['handler']($e, $this->outcome(Status::Escalated, null, $e, null));
+                $handler = $risk['handler'];
+
+                if (is_string($handler)) {
+                    $correction = $this->container->make($handler);
+                    $value = $correction instanceof Correction ? $correction($e, $this->outcome(Status::Escalated, null, $e, null)) : null;
+                } else {
+                    $value = $handler($e, $this->outcome(Status::Escalated, null, $e, null));
+                }
             } catch (Throwable $fromHandler) {
                 $this->note('correction.threw', ['risk' => $risk['class'], 'exception' => $fromHandler::class]);
 
@@ -221,7 +243,7 @@ class Run
             Status::Succeeded => null,
         };
 
-        if ($outcome->escalated()) {
+        if ($outcome->escalated() || ($this->control->escalatesLimits() && $outcome->limitsBreached !== [])) {
             $this->notifyEscalation($outcome);
         }
 
@@ -233,6 +255,15 @@ class Run
         $escalation = $this->control->escalation();
 
         if ($escalation === null) {
+            return;
+        }
+
+        $throttle = $this->control->escalationThrottle();
+
+        if ($throttle !== null && ! Cache::add('monitor:escalation:'.$this->info->point, $this->info->id, $throttle)) {
+            $this->note('escalation.throttled', ['seconds' => $throttle]);
+            $this->events->dispatch(new EscalationThrottled($outcome, $throttle));
+
             return;
         }
 
@@ -289,6 +320,8 @@ class Run
             context: $this->info->context,
             timeline: $this->timeline,
             stack: $this->info->stack,
+            startedAt: $this->startedAtClock,
+            endedAt: CarbonImmutable::now(),
         );
     }
 

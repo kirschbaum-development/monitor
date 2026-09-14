@@ -10,6 +10,7 @@ use Illuminate\Container\Container;
 use Illuminate\Database\DeadlockException;
 use Illuminate\Support\Traits\Conditionable;
 use Illuminate\Support\Traits\Macroable;
+use Kirschbaum\Monitor\Contracts\Correction;
 use Kirschbaum\Monitor\Contracts\Escalation;
 use Kirschbaum\Monitor\Contracts\Policy;
 use Kirschbaum\Monitor\Contracts\Runner;
@@ -18,6 +19,7 @@ use Kirschbaum\Monitor\Limits\Attempts;
 use Kirschbaum\Monitor\Limits\Ensure;
 use Kirschbaum\Monitor\Limits\Within;
 use Kirschbaum\Monitor\Policies\Breaker;
+use Kirschbaum\Monitor\Policies\Once;
 use Kirschbaum\Monitor\Policies\Retry;
 use Kirschbaum\Monitor\Policies\Transaction;
 use Kirschbaum\Monitor\Support\Domain;
@@ -58,8 +60,12 @@ class Control
     /** @var list<Ensure> */
     private array $ensures = [];
 
-    /** @var list<array{class: class-string<Throwable>, handler: Closure}> */
+    /** @var list<array{class: class-string<Throwable>, handler: Closure|class-string<Correction>}> */
     private array $risks = [];
+
+    private bool $escalateLimits = false;
+
+    private ?int $escalationThrottle = null;
 
     /** @var Closure|class-string<Escalation>|null */
     private Closure|string|null $escalation = null;
@@ -191,6 +197,17 @@ class Control
     }
 
     /**
+     * Run at most once per idempotency key inside the window, refusing a
+     * second run with a Duplicate risk.
+     */
+    public function once(string $key, int $ttl = 3600): self
+    {
+        $this->policies['once'] = Once::key($key, $ttl);
+
+        return $this;
+    }
+
+    /**
      * Any policy, including your own. A shipped policy passed here replaces the
      * one of the same type.
      */
@@ -237,12 +254,16 @@ class Control
      * Declare a risk and its correction. The handler's return value becomes the
      * result of the point. First matching class wins, in declaration order.
      *
-     * @param  Closure(Throwable, Outcome): mixed  $handler
+     * @param  (Closure(Throwable, Outcome): mixed)|string  $handler  a closure, or a Correction class name
      */
-    public function recover(string $class, Closure $handler): self
+    public function recover(string $class, Closure|string $handler): self
     {
         if (! is_a($class, Throwable::class, true)) {
             throw new InvalidControlPoint(sprintf('recover() expects a Throwable class, got [%s].', $class));
+        }
+
+        if (is_string($handler) && ! is_a($handler, Correction::class, true)) {
+            throw new InvalidControlPoint(sprintf('recover() expects a Closure or a Correction class, got [%s].', $handler));
         }
 
         $this->risks[] = ['class' => $class, 'handler' => $handler];
@@ -267,9 +288,44 @@ class Control
     }
 
     /**
+     * Also escalate a run that completed but breached a limit, so a slow
+     * success reaches the same people as a failure.
+     */
+    public function escalateLimits(bool $escalate = true): self
+    {
+        $this->escalateLimits = $escalate;
+
+        return $this;
+    }
+
+    public function escalatesLimits(): bool
+    {
+        return $this->escalateLimits;
+    }
+
+    /**
+     * Escalate at most once per this many seconds for this point, so an
+     * outage does not page for every refused run.
+     */
+    public function throttleEscalation(int $seconds): self
+    {
+        $this->escalationThrottle = max(1, $seconds);
+
+        return $this;
+    }
+
+    public function escalationThrottle(): ?int
+    {
+        return $this->escalationThrottle;
+    }
+
+    /**
      * Execute and return the value, or throw what escaped.
      *
-     * @param  Closure(): mixed  $callback
+     * @template T
+     *
+     * @param  Closure(): T  $callback
+     * @return T
      */
     public function run(Closure $callback): mixed
     {
@@ -329,7 +385,7 @@ class Control
     }
 
     /**
-     * @return list<array{class: class-string<Throwable>, handler: Closure}>
+     * @return list<array{class: class-string<Throwable>, handler: Closure|class-string<Correction>}>
      */
     public function risks(): array
     {
@@ -394,8 +450,11 @@ class Control
             'policies' => array_map(fn (Policy $policy): array => $policy->describe(), $this->resolvedPolicies()),
             'limits' => $limits,
             'risks' => $this->riskClasses(),
+            'corrections' => array_map(fn (array $risk): string => is_string($risk['handler']) ? $risk['handler'] : 'closure', $this->risks),
             'catch_all' => $this->hasCatchAll(),
             'escalation' => is_string($escalation) ? $escalation : ($escalation instanceof Closure ? 'closure' : null),
+            'escalate_limits' => $this->escalateLimits,
+            'escalation_throttle' => $this->escalationThrottle,
         ];
     }
 
@@ -414,6 +473,7 @@ class Control
             $policy instanceof Retry => 'retry',
             $policy instanceof Transaction => 'transaction',
             $policy instanceof Breaker => 'breaker',
+            $policy instanceof Once => 'once',
             default => $policy::class,
         };
     }

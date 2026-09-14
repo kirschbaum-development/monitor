@@ -22,6 +22,7 @@ use Kirschbaum\Monitor\Console\Commands\OutcomesCommand;
 use Kirschbaum\Monitor\Console\Commands\PointsCommand;
 use Kirschbaum\Monitor\Console\Commands\PruneCommand;
 use Kirschbaum\Monitor\Contracts\Runner;
+use Kirschbaum\Monitor\Http\HttpBreaker;
 use Kirschbaum\Monitor\Http\Middleware\CheckBreakers;
 use Kirschbaum\Monitor\Http\Middleware\StartTrace;
 use Kirschbaum\Monitor\Mcp\MonitorServer;
@@ -162,11 +163,12 @@ class MonitorServiceProvider extends ServiceProvider
     }
 
     /**
-     * Register Http::traced() and $pendingRequest->traced().
+     * Register Http::traced(), Http::breaker() and their PendingRequest forms.
      */
     protected function registerMacros(): void
     {
         PropagatesTrace::register(fn (): Trace => $this->app->make(Trace::class));
+        HttpBreaker::register(fn (): CircuitBreaker => $this->app->make(CircuitBreaker::class));
     }
 
     /**

@@ -183,7 +183,8 @@ class OutcomeStore
             'limits_breached' => json_encode($outcome->limitsBreached),
             'policies' => json_encode($outcome->policies),
             'timeline' => json_encode($outcome->timeline),
-            'ended_at' => Date::now(),
+            'started_at' => $outcome->startedAt,
+            'ended_at' => $outcome->endedAt,
         ];
     }
 

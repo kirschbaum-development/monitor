@@ -32,7 +32,7 @@ describe('control stack', function (): void {
         Context::addHidden(ControlStack::KEY, ['junk', ['point' => 1], ['point' => 'ok.one', 'run_id' => 'r']]);
         $stack = resolve(ControlStack::class);
 
-        expect($stack->all())->toBe([['point' => 'ok.one', 'run_id' => 'r']]);
+        expect($stack->all())->toBe([['point' => 'ok.one', 'run_id' => 'r', 'origin' => null]]);
 
         $stack->clear();
 

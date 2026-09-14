@@ -16,6 +16,8 @@ use Kirschbaum\Monitor\Run;
  */
 interface Policy
 {
+    public const ORDER_ONCE = 50;
+
     public const ORDER_BREAKER = 100;
 
     public const ORDER_RETRY = 200;

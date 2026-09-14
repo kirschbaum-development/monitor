@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Contracts\Support\Arrayable;
 use JsonSerializable;
 use Throwable;
@@ -44,6 +45,8 @@ final readonly class Outcome implements Arrayable, JsonSerializable
         public array $context,
         public array $timeline,
         public array $stack,
+        public CarbonImmutable $startedAt,
+        public CarbonImmutable $endedAt,
     ) {}
 
     public function succeeded(): bool
@@ -122,6 +125,8 @@ final readonly class Outcome implements Arrayable, JsonSerializable
             'policies' => $this->policies,
             'context' => $this->context,
             'stack' => $this->stack,
+            'started_at' => $this->startedAt->toIso8601String(),
+            'ended_at' => $this->endedAt->toIso8601String(),
         ];
     }
 

@@ -19,10 +19,12 @@ class ControlStack
 
     public const string CURRENT = 'control_point';
 
-    public function push(string $point, string $runId): void
+    public const string DISPATCHED_FROM = 'dispatched_from_run';
+
+    public function push(string $point, string $runId, ?string $origin = null): void
     {
         $stack = $this->all();
-        $stack[] = ['point' => $point, 'run_id' => $runId];
+        $stack[] = ['point' => $point, 'run_id' => $runId, 'origin' => $origin];
 
         Context::addHidden(self::KEY, $stack);
         Context::add(self::CURRENT, $point);
@@ -45,7 +47,7 @@ class ControlStack
     }
 
     /**
-     * @return array{point: string, run_id: string}|null
+     * @return array{point: string, run_id: string, origin: string|null}|null
      */
     public function current(): ?array
     {
@@ -78,7 +80,37 @@ class ControlStack
     }
 
     /**
-     * @return list<array{point: string, run_id: string}>
+     * The origin class of the innermost running point, if any.
+     */
+    public function currentOrigin(): ?string
+    {
+        return $this->current()['origin'] ?? null;
+    }
+
+    /**
+     * Forget the stack but remember which run dispatched this process's work,
+     * for a job that starts with a stack it inherited through Context.
+     */
+    public function handOff(): void
+    {
+        $current = $this->currentRunId();
+
+        $this->clear();
+
+        if ($current !== null) {
+            Context::add(self::DISPATCHED_FROM, $current);
+        }
+    }
+
+    public function dispatchedFrom(): ?string
+    {
+        $id = Context::get(self::DISPATCHED_FROM);
+
+        return is_string($id) ? $id : null;
+    }
+
+    /**
+     * @return list<array{point: string, run_id: string, origin: string|null}>
      */
     public function all(): array
     {
@@ -92,7 +124,7 @@ class ControlStack
 
         foreach ($stack as $entry) {
             if (is_array($entry) && is_string($entry['point'] ?? null) && is_string($entry['run_id'] ?? null)) {
-                $entries[] = ['point' => $entry['point'], 'run_id' => $entry['run_id']];
+                $entries[] = ['point' => $entry['point'], 'run_id' => $entry['run_id'], 'origin' => is_string($entry['origin'] ?? null) ? $entry['origin'] : null];
             }
         }
 
