@@ -4,8 +4,7 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor\Logging;
 
-use Illuminate\Contracts\Container\Container;
-use Illuminate\Log\LogManager;
+use Illuminate\Support\Facades\Log;
 use Kirschbaum\Monitor\Support\Domain;
 use Psr\Log\LoggerInterface;
 use Psr\Log\LoggerTrait;
@@ -27,7 +26,7 @@ final class StructuredLogger implements LoggerInterface
     /** @var array<string, mixed> */
     private array $context = [];
 
-    public function __construct(private readonly Container $container, string|object $origin, private readonly ?string $channel = null)
+    public function __construct(string|object $origin, private ?string $channel = null)
     {
         $this->origin = is_object($origin) ? $origin::class : $origin;
         $this->domain = Domain::resolve($this->origin);
@@ -58,7 +57,10 @@ final class StructuredLogger implements LoggerInterface
 
     public function channel(string $channel): self
     {
-        return new self($this->container, $this->origin, $channel);
+        $clone = clone $this;
+        $clone->channel = $channel;
+
+        return $clone;
     }
 
     /**
@@ -66,8 +68,7 @@ final class StructuredLogger implements LoggerInterface
      */
     public function log($level, string|Stringable $message, array $context = []): void
     {
-        $logger = $this->container->make(LogManager::class);
-        $writer = $this->channel !== null ? $logger->channel($this->channel) : $logger;
+        $writer = Log::channel($this->channel);
 
         $writer->log(is_string($level) || $level instanceof Stringable ? (string) $level : 'info', $this->prefix().' '.$message, array_merge(
             $this->context,

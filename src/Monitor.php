@@ -44,6 +44,6 @@ class Monitor
      */
     public function log(string|object $origin): StructuredLogger
     {
-        return new StructuredLogger($this->container, $origin);
+        return new StructuredLogger($origin);
     }
 }

@@ -72,6 +72,30 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Inventory Rules
+    |--------------------------------------------------------------------------
+    |
+    | What monitor:points --check enforces. Every rule is on unless set to
+    | false here. Errors fail the check; warnings are printed.
+    |
+    |   duplicate_names                 error    two points share a name
+    |   name_pattern                    error    a name does not match the pattern
+    |   missing_escalation              error    a class-form point has no escalation and no catch-all
+    |   catch_all_without_escalation    warning  recover(Throwable::class) with nowhere to escalate
+    |   critical_namespace_uncontrolled error    a class in a critical namespace is not a control point
+    |   dynamic_name                    warning  an inline point's name is not a string literal
+    |   unreadable_control              error    control() cannot be read without the constructor
+    |
+    */
+
+    'inventory' => [
+        'rules' => [
+            // 'catch_all_without_escalation' => false,
+        ],
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Profiles
     |--------------------------------------------------------------------------
     |
@@ -160,6 +184,19 @@ return [
         'redaction' => env('MONITOR_REDACTION_PROFILE', 'observability'),
         'exception_trace' => env('MONITOR_EXCEPTION_TRACE', 'never'), // never | debug | always
         'exception_trace_lines' => 15,
+        'levels' => [
+            'point.started' => 'debug',
+            'point.retried' => 'notice',
+            'point.limit' => 'warning',
+            'point.recovered' => 'warning',
+            'point.refused' => 'warning',
+            'point.escalated' => 'error',
+            'point.ended' => 'info',
+            'escalation.failed' => 'critical',
+            'breaker.opened' => 'error',
+            'breaker.half_open' => 'notice',
+            'breaker.closed' => 'info',
+        ],
         'store' => [
             'enabled' => env('MONITOR_STORE', false),
             'connection' => env('MONITOR_STORE_CONNECTION'),

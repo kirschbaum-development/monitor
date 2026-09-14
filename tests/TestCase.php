@@ -7,6 +7,7 @@ namespace Tests;
 use Illuminate\Support\Facades\Http;
 use Kirschbaum\Monitor\MonitorServiceProvider;
 use Kirschbaum\Redactor\RedactorServiceProvider;
+use Laravel\Mcp\Server\McpServiceProvider;
 use Orchestra\Testbench\Concerns\WithWorkbench;
 use Orchestra\Testbench\TestCase as BaseTestCase;
 
@@ -18,6 +19,7 @@ class TestCase extends BaseTestCase
     {
         return [
             RedactorServiceProvider::class,
+            McpServiceProvider::class,
             MonitorServiceProvider::class,
         ];
     }
