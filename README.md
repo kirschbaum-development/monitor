@@ -121,7 +121,8 @@ An **inventory** reads the codebase without running it: `monitor:points` lists e
 ## What It Covers
 
 - **Critical operations** through `Monitor::control()` inline or `ControlPoint` classes, with typed outcomes.
-- **Resilience** through retry with backoff, whole-transaction retry on deadlock, and a closed/open/half-open circuit breaker shared across processes, also usable standalone and as the `CheckBreakers` route middleware.
+- **Resilience** through retry with backoff, whole-transaction retry on deadlock, `once()` for idempotent runs, and a closed/open/half-open circuit breaker shared across processes, also usable standalone, on the HTTP client as `Http::breaker()`, and as the `CheckBreakers` route middleware.
+- **Queues** through `ChargeCard::dispatch()`, which runs a control point as a job tagged for Horizon and released for the breaker's retry-after when refused, and the `WaitForBreaker` job middleware.
 - **Records** as one schema for every transition, redacted through [Redactor](https://github.com/kirschbaum-development/redactor), with a tap that writes NDJSON with the fields at the top level.
 - **Tracing** with W3C `traceparent` and a legacy header, `Http::traced()` for outgoing calls, and automatic propagation to queued jobs.
 - **A store** of outcomes, written after the response, for `monitor:outcomes` and the MCP tools when there is no log backend.
