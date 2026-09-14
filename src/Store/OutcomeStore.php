@@ -137,14 +137,12 @@ class OutcomeStore
         $seen = [];
 
         foreach ($rows as $row) {
-            if (! is_string($row->point) || ! is_string($row->last_at)) {
-                continue;
-            }
+            $point = is_string($row->point) ? $row->point : '';
+            $lastAt = is_string($row->last_at) ? $row->last_at : '';
+            $last = $this->query()->where('point', $point)->where('ended_at', $lastAt)->orderByDesc('id')->first();
 
-            $last = $this->query()->where('point', $row->point)->where('ended_at', $row->last_at)->orderByDesc('id')->first();
-
-            $seen[$row->point] = [
-                'ended_at' => $row->last_at,
+            $seen[$point] = [
+                'ended_at' => $lastAt,
                 'status' => is_object($last) && is_string($last->status) ? $last->status : 'unknown',
             ];
         }

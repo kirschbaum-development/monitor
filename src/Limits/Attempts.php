@@ -11,11 +11,6 @@ final readonly class Attempts implements Limit
 {
     public function __construct(public int $max) {}
 
-    public function name(): string
-    {
-        return 'attempts';
-    }
-
     public function describe(): array
     {
         return ['type' => 'attempts', 'max' => $this->max];

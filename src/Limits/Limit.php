@@ -10,8 +10,6 @@ namespace Kirschbaum\Monitor\Limits;
  */
 interface Limit
 {
-    public function name(): string;
-
     /**
      * @return array<string, mixed>
      */

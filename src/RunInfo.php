@@ -26,21 +26,4 @@ final readonly class RunInfo
         public array $context,
     ) {}
 
-    /**
-     * @return array<string, mixed>
-     */
-    public function toArray(): array
-    {
-        return [
-            'point' => $this->point,
-            'run_id' => $this->id,
-            'parent_run_id' => $this->parentId,
-            'trace_id' => $this->traceId,
-            'domain' => $this->domain,
-            'origin' => $this->origin,
-            'profile' => $this->profile,
-            'stack' => $this->stack,
-            'context' => $this->context,
-        ];
-    }
 }

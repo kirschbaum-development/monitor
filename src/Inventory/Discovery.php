@@ -9,6 +9,7 @@ use Kirschbaum\Monitor\Control;
 use Kirschbaum\Monitor\ControlPoint;
 use Kirschbaum\Monitor\Inventory\Rules\Rule;
 use Kirschbaum\Monitor\Support\Domain;
+use Kirschbaum\Monitor\Support\Lists;
 use Symfony\Component\Finder\Finder;
 use Throwable;
 
@@ -121,42 +122,14 @@ final readonly class Discovery
             file: $file,
             line: (new \ReflectionClass($class))->getStartLine() ?: null,
             profile: is_string($described['profile']) ? $described['profile'] : null,
-            policies: $this->arrays($described['policies'] ?? null),
-            limits: $this->arrays($described['limits'] ?? null),
+            policies: Lists::ofArrays($described['policies'] ?? null),
+            limits: Lists::ofArrays($described['limits'] ?? null),
             risks: is_array($described['risks']) ? array_values(array_filter($described['risks'], is_string(...))) : [],
             catchAll: (bool) ($described['catch_all'] ?? false),
             escalation: is_string($described['escalation']) ? $described['escalation'] : null,
             notes: is_array($described['notes']) ? array_values(array_filter($described['notes'], is_string(...))) : [],
             unreadable: (bool) ($described['unreadable'] ?? false),
         );
-    }
-
-    /**
-     * @return list<array<string, mixed>>
-     */
-    private function arrays(mixed $value): array
-    {
-        $out = [];
-
-        if (! is_array($value)) {
-            return $out;
-        }
-
-        foreach ($value as $item) {
-            if (! is_array($item)) {
-                continue;
-            }
-
-            $row = [];
-
-            foreach ($item as $key => $itemValue) {
-                $row[(string) $key] = $itemValue;
-            }
-
-            $out[] = $row;
-        }
-
-        return $out;
     }
 
     /**

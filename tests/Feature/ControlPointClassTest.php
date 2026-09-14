@@ -87,7 +87,8 @@ describe('class form', function (): void {
 
         expect($described)->toMatchArray(['point' => 'payment.charge', 'origin' => ChargeCard::class, 'profile' => 'external', 'form' => 'class', 'notes' => [], 'escalation' => PagePayments::class, 'risks' => [CardDeclined::class]])
             ->and(array_column($described['policies'], 'type'))->toBe(['breaker', 'retry'])
-            ->and($described['policies'][0]['name'])->toBe('stripe');
+            ->and($described['policies'][0]['name'])->toBe('stripe')
+            ->and($described['limits'][1])->toBe(['type' => 'attempts', 'max' => 3]);
     });
 
     it('notes when control() cannot be read without the constructor', function (): void {

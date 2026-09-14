@@ -20,6 +20,7 @@ final class ChargeCard extends ControlPoint
     {
         $control
             ->breaker('stripe')
+            ->attempts(3)
             ->ensure(fn (array $r): bool => $r['settled'] === true, 'charge must be settled')
             ->recover(CardDeclined::class, fn (CardDeclined $e): array => ['declined' => $e->declineCode])
             ->escalate(PagePayments::class);

@@ -74,11 +74,6 @@ final class Run
         return $outcome;
     }
 
-    public function info(): RunInfo
-    {
-        return $this->info;
-    }
-
     public function attempt(): int
     {
         return $this->attempt;

@@ -35,10 +35,6 @@ final class Expectations
 
     public static function register(): void
     {
-        if (! function_exists('expect')) {
-            return;
-        }
-
         $mixin = new self;
 
         expect()->extend('toBeControlled', $mixin->toBeControlled());

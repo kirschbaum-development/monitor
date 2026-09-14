@@ -66,7 +66,7 @@ describe('phpstan rule', function (): void {
             }
         }
 
-        expect($flagged)->toHaveCount(1)->toHaveKey('Uncontrolled.php')
+        expect($flagged)->toHaveCount(2)->toHaveKey('Uncontrolled.php')->toHaveKey('Misnamed.php')
             ->and($flagged['Uncontrolled.php'])->toContain('Uncontrolled sits in a critical namespace');
     })->skip(! is_file(__DIR__.'/../../vendor/bin/phpstan'), 'phpstan is not installed');
 });

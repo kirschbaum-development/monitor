@@ -18,11 +18,6 @@ final readonly class Ensure implements Limit
      */
     public function __construct(public Closure $check, public string $reason) {}
 
-    public function name(): string
-    {
-        return 'ensure';
-    }
-
     public function holdsFor(mixed $value): bool
     {
         return ($this->check)($value) === true;

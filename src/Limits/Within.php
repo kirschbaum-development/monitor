@@ -14,11 +14,6 @@ final readonly class Within implements Limit
 {
     public function __construct(public float $seconds) {}
 
-    public function name(): string
-    {
-        return 'duration';
-    }
-
     public function thresholdMs(): float
     {
         return $this->seconds * 1000;

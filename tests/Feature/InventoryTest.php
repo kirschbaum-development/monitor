@@ -14,6 +14,7 @@ use Kirschbaum\Monitor\Inventory\Rules\Rules;
 use Kirschbaum\Monitor\Store\OutcomeStore;
 use Kirschbaum\Monitor\Store\StoreOutcomes;
 use Workbench\Monitor\ControlPoints\Escalations\PagePayments;
+use Workbench\Monitor\ControlPoints\Filings\Unnamed;
 use Workbench\Monitor\ControlPoints\Payments\ChargeCard;
 use Workbench\Monitor\ControlPoints\Payments\InlineCharger;
 use Workbench\Monitor\Support\CardDeclined;
@@ -35,7 +36,7 @@ describe('discovery', function (): void {
         $names = array_map(fn (PointDescription $p): string => $p->name, $inventory->points);
         sort($names);
 
-        expect($names)->toBe(['(dynamic)', 'BadName', 'filing.submit', 'payment.capture', 'payment.charge', 'payment.charge', 'payment.inline', 'payment.refund']);
+        expect($names)->toBe(['(dynamic)', 'BadName', Unnamed::class, 'filing.submit', 'payment.capture', 'payment.charge', 'payment.charge', 'payment.direct', 'payment.inline', 'payment.refund']);
 
         $charge = $inventory->find('payment.charge');
         $inline = $inventory->find('payment.inline');
@@ -47,6 +48,7 @@ describe('discovery', function (): void {
             ->and($charge->risks)->toBe([CardDeclined::class])
             ->and($charge->escalation)->toBe(PagePayments::class)
             ->and(array_column($charge->policies, 'type'))->toBe(['breaker', 'retry'])
+            ->and($charge->limits[1])->toBe(['type' => 'attempts', 'max' => 3])
             ->and($inline->isClassForm())->toBeFalse()
             ->and($inline->origin)->toBe(InlineCharger::class)
             ->and($inline->line)->toBeInt()
@@ -95,9 +97,10 @@ describe('discovery', function (): void {
         $scanned = resolve(AstScanner::class)->scan(workbenchPath().'/ControlPoints/Payments/InlineCharger.php');
 
         expect($scanned->classes)->toBe([InlineCharger::class])
-            ->and($scanned->inlinePoints)->toHaveCount(2)
+            ->and($scanned->inlinePoints)->toHaveCount(3)
             ->and($scanned->inlinePoints[0]['name'])->toBe('payment.inline')
-            ->and($scanned->inlinePoints[1]['name'])->toBeNull();
+            ->and($scanned->inlinePoints[1]['name'])->toBe('payment.direct')
+            ->and($scanned->inlinePoints[2]['name'])->toBeNull();
 
         $broken = tempnam(sys_get_temp_dir(), 'monitor').'.php';
         file_put_contents($broken, '<?php class {');
@@ -115,7 +118,7 @@ describe('reports', function (): void {
         $json = json_decode((new JsonReport)->render($inventory), true);
         $sarif = json_decode((new SarifReport)->render($inventory, workbenchPath()), true);
 
-        expect($json['points'])->toHaveCount(8)->and($json['findings'])->not->toBeEmpty()
+        expect($json['points'])->toHaveCount(10)->and($json['findings'])->not->toBeEmpty()
             ->and($sarif['version'])->toBe('2.1.0')
             ->and($sarif['runs'][0]['tool']['driver']['rules'])->toHaveCount(count(Rules::all()))
             ->and($sarif['runs'][0]['results'][0]['ruleId'])->toBeString()

@@ -29,12 +29,8 @@ final class AstScanner
         }
 
         try {
-            $ast = (new ParserFactory)->createForNewestSupportedVersion()->parse($code);
+            $ast = (new ParserFactory)->createForNewestSupportedVersion()->parse($code) ?? [];
         } catch (Error) {
-            return new ScannedFile($path, [], []);
-        }
-
-        if ($ast === null) {
             return new ScannedFile($path, [], []);
         }
 
