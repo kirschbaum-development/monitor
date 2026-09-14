@@ -1,13 +1,23 @@
 {
     "name": "kirschbaum-development/monitor",
-    "description": "Laravel observability toolkit with critical control points, structured logging, performance timing, and trace context.",
+    "description": "Control points for Laravel: declare what a critical operation tolerates, bound it, record every outcome, and verify it in CI.",
     "type": "library",
     "license": "MIT",
-    "keywords": ["laravel", "logging", "telemetry", "observability", "trace", "controlled", "monitor"],
+    "keywords": [
+        "laravel",
+        "observability",
+        "resilience",
+        "circuit breaker",
+        "retry",
+        "structured logging",
+        "tracing",
+        "control points",
+        "critical operations",
+        "monitor"
+    ],
     "autoload": {
         "psr-4": {
-            "Kirschbaum\\Monitor\\": "src/",
-            "Tests\\": "tests/"
+            "Kirschbaum\\Monitor\\": "src/"
         }
     },
     "autoload-dev": {
@@ -21,27 +31,35 @@
     "authors": [
         {
             "name": "Belisar Hoxholli",
-            "email": "belisar.hoxholli@gmail.com"
+            "email": "belisar.hoxholli@gmail.com",
+            "role": "Developer"
         }
     ],
+    "require": {
+        "php": "^8.3|^8.4|^8.5",
+        "illuminate/support": "^12.0|^13.0",
+        "monolog/monolog": "^3.0",
+        "symfony/finder": "^7.0|^8.0",
+        "kirschbaum-development/redactor": "^1.0",
+        "nikic/php-parser": "^5.0"
+    },
     "require-dev": {
-        "pestphp/pest": "^3.8",
-        "laravel/pint": "^1.22",
         "larastan/larastan": "^3.4",
-        "orchestra/testbench": "^10.3",
-        "pestphp/pest-plugin-laravel": "^3.1",
-        "timacdonald/log-fake": "^2.4"
+        "laravel/pint": "^1.22",
+        "orchestra/testbench": "^10.3|^11.0",
+        "pestphp/pest": "^3.8",
+        "timacdonald/log-fake": "^2.4",
+        "laravel/mcp": "^1.0",
+        "rector/rector": "^2.6",
+        "driftingly/rector-laravel": "^2.5"
+    },
+    "suggest": {
+        "laravel/mcp": "To let agents list control points, read their contracts and query outcomes over MCP"
     },
     "config": {
         "allow-plugins": {
             "pestphp/pest-plugin": true
         }
-    },
-    "require": {
-        "illuminate/support": "^11.9|^12.0",
-        "spatie/laravel-package-tools": "^1.16",
-        "php": "^8.3|^8.4",
-        "kirschbaum-development/redactor": "^0.1.0"
     },
     "extra": {
         "laravel": {
@@ -71,7 +89,8 @@
         ],
         "lint": [
             "@php vendor/bin/pint --ansi",
-            "@php vendor/bin/phpstan analyse --verbose --ansi"
+            "@php vendor/bin/rector process --ansi",
+            "@php vendor/bin/phpstan analyse --verbose --ansi --memory-limit=1G"
         ],
         "test": [
             "@clear",
@@ -79,8 +98,22 @@
         ],
         "preflight": [
             "@php vendor/bin/pint --test --ansi",
-            "@php vendor/bin/phpstan analyse --no-progress --ansi",
+            "@php vendor/bin/rector process --dry-run --ansi",
+            "@php vendor/bin/phpstan analyse --no-progress --ansi --memory-limit=1G",
             "@php vendor/bin/pest --parallel"
+        ],
+        "test-coverage": [
+            "@clear",
+            "@php -d memory_limit=2G vendor/bin/pest --coverage --min=100"
+        ],
+        "mutate": [
+            "@php -d memory_limit=2G vendor/bin/pest --mutate --everything --covered-only"
+        ],
+        "rector": [
+            "@php vendor/bin/rector process --ansi"
+        ],
+        "rector:check": [
+            "@php vendor/bin/rector process --dry-run --ansi"
         ]
     }
 }

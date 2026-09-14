@@ -1,6 +1,8 @@
 laravel: '@testbench'
 
 providers:
+  - Kirschbaum\Redactor\RedactorServiceProvider
+  - Laravel\Mcp\Server\McpServiceProvider
   - Kirschbaum\Monitor\MonitorServiceProvider
 
 workbench:

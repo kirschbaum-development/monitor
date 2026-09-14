@@ -1,0 +1,48 @@
+<?php
+
+declare(strict_types=1);
+
+namespace {{ namespace }};
+
+use Kirschbaum\Monitor\Attributes\Point;
+use Kirschbaum\Monitor\Control;
+use Kirschbaum\Monitor\ControlPoint;
+
+#[Point('{{ point }}'{{ profile }})]
+final class {{ class }} extends ControlPoint
+{
+    public function __construct()
+    {
+        //
+    }
+
+    /**
+     * What this operation tolerates, what bounds it, and who is told when it fails.
+     * Must not read constructor arguments; the inventory calls it without them.
+     */
+    protected function control(Control $control): void
+    {
+        $control
+            // ->recover(SomeExpectedException::class, fn (SomeExpectedException $e) => /* the value to return instead */)
+            // ->ensure(fn ($result): bool => true, 'describe what must hold')
+            ->escalate(fn ($outcome) => report($outcome->exception));
+    }
+
+    /**
+     * Context recorded with every transition of this point.
+     *
+     * @return array<string, mixed>
+     */
+    public function context(): array
+    {
+        return [];
+    }
+
+    /**
+     * The operation. Parameters are resolved from the container.
+     */
+    public function handle(): mixed
+    {
+        //
+    }
+}

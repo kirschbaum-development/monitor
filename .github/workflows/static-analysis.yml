@@ -4,9 +4,17 @@ on:
   push:
     paths:
       - '**.php'
-      - 'composer.lock'
+      - 'composer.json'
       - 'phpstan.neon.dist'
-      - '.github/workflows/phpstan.yml'
+      - 'rector.php'
+      - '.github/workflows/static-analysis.yml'
+  pull_request:
+    paths:
+      - '**.php'
+      - 'composer.json'
+      - 'phpstan.neon.dist'
+      - 'rector.php'
+      - '.github/workflows/static-analysis.yml'
 
 jobs:
   phpstan:
@@ -14,17 +22,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.4'
+          php-version: '8.5'
           extensions: dom, curl, libxml, mbstring, zip, pcntl, pdo, sqlite, pdo_sqlite, bcmath, soap, intl, gd, exif, iconv, imagick, fileinfo, swoole, openssl
           coverage: none
 
       - name: Install composer dependencies
-        uses: ramsey/composer-install@v3
+        uses: ramsey/composer-install@v4
+
+      - name: Run Rector (dry run)
+        run: ./vendor/bin/rector process --dry-run --no-progress-bar
 
       - name: Run PHPStan
-        run: ./vendor/bin/phpstan --error-format=github
+        run: ./vendor/bin/phpstan analyse --error-format=github --no-progress --memory-limit=1G

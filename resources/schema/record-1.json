@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/kirschbaum-development/monitor/resources/schema/record-1.json",
+  "title": "Monitor record",
+  "description": "One transition of a control point or a circuit breaker, as written to the log by Kirschbaum Monitor. Written as the log record's context; the JsonTap lifts these fields to the top level of an NDJSON line alongside ts, level, channel and message.",
+  "type": "object",
+  "required": ["schema", "event"],
+  "properties": {
+    "schema": { "const": "monitor/1" },
+    "event": {
+      "enum": [
+        "point.started", "point.retried", "point.limit", "point.recovered", "point.escalated", "point.refused", "point.ended",
+        "escalation.failed", "escalation.throttled", "breaker.opened", "breaker.half_open", "breaker.closed"
+      ]
+    },
+    "point": { "type": "string", "description": "The control point name, e.g. payment.charge." },
+    "run_id": { "type": "string", "description": "ULID of this run." },
+    "parent_run_id": { "type": ["string", "null"], "description": "ULID of the enclosing run, when nested." },
+    "stack": { "type": "array", "items": { "type": "string" }, "description": "Point names from outermost to this one." },
+    "trace_id": { "type": "string", "pattern": "^[0-9a-f]{32}$" },
+    "domain": { "type": "string" },
+    "origin": { "type": "string", "description": "Fully qualified class the point belongs to." },
+    "profile": { "type": ["string", "null"] },
+    "context": { "type": "object", "description": "Point context, redacted." },
+    "attempt": { "type": "integer", "minimum": 1, "description": "On point.started and point.retried: the attempt in question." },
+    "attempts": { "type": "integer", "minimum": 1, "description": "On outcome events: total attempts made." },
+    "backoff_ms": { "type": "integer", "minimum": 0 },
+    "duration_ms": { "type": "number", "minimum": 0 },
+    "status": { "enum": ["succeeded", "recovered", "escalated", "refused"] },
+    "risk": { "type": ["string", "null"], "description": "On point.recovered: the exception class the correction handled." },
+    "limit": {
+      "type": "object",
+      "required": ["name", "threshold", "actual"],
+      "properties": {
+        "name": { "enum": ["duration", "attempts"] },
+        "threshold": { "type": "number" },
+        "actual": { "type": "number" }
+      }
+    },
+    "limits_breached": { "type": "object", "additionalProperties": { "type": "object", "properties": { "threshold": { "type": "number" }, "actual": { "type": "number" } } } },
+    "exception": {
+      "type": "object",
+      "required": ["class", "message"],
+      "properties": {
+        "class": { "type": "string" },
+        "message": { "type": "string" },
+        "file": { "type": "string" },
+        "line": { "type": "integer" },
+        "code": {},
+        "previous": { "type": "object" },
+        "trace": { "type": "array", "items": { "type": "string" } },
+        "trace_truncated": { "type": "integer" }
+      }
+    },
+    "escalation_exception": { "$ref": "#/properties/exception" },
+    "throttle_seconds": { "type": "integer", "description": "On escalation.throttled: the window inside which one escalation already fired." },
+    "breaker": {
+      "type": ["object", "null"],
+      "properties": {
+        "name": { "type": "string" },
+        "state": { "enum": ["closed", "open", "half_open"] },
+        "failures": { "type": "integer" },
+        "open_for": { "type": ["integer", "null"] },
+        "retry_after_s": { "type": "integer" }
+      }
+    }
+  }
+}

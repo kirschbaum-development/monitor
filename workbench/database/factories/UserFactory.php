@@ -10,7 +10,7 @@ use Workbench\Monitor\Models\User;
 /**
  * @template TModel of \Workbench\Monitor\Models\User
  *
- * @extends \Illuminate\Database\Eloquent\Factories\Factory<TModel>
+ * @extends Factory<TModel>
  */
 class UserFactory extends Factory
 {

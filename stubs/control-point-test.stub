@@ -1,0 +1,22 @@
+<?php
+
+declare(strict_types=1);
+
+use Kirschbaum\Monitor\Facades\Monitor;
+use {{ fqcn }};
+
+it('succeeds', function (): void {
+    Monitor::fake();
+
+    {{ class }}::run();
+
+    Monitor::assertSucceeded('{{ point }}');
+});
+
+it('escalates an unexpected failure', function (): void {
+    Monitor::fake()->failing('{{ point }}', new RuntimeException('unexpected'));
+
+    {{ class }}::attempt();
+
+    Monitor::assertEscalated('{{ point }}', with: RuntimeException::class);
+});

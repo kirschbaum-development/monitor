@@ -3,6 +3,13 @@
          xsi:noNamespaceSchemaLocation="vendor/phpunit/phpunit/phpunit.xsd"
          bootstrap="vendor/autoload.php"
          colors="true"
+         cacheDirectory=".phpunit.cache"
+         failOnWarning="true"
+         failOnRisky="true"
+         failOnDeprecation="true"
+         failOnNotice="true"
+         failOnEmptyTestSuite="true"
+         beStrictAboutOutputDuringTests="true"
 >
     <testsuites>
         <testsuite name="Unit">
@@ -10,6 +17,9 @@
         </testsuite>
         <testsuite name="Feature">
             <directory>tests/Feature</directory>
+        </testsuite>
+        <testsuite name="Performance">
+            <directory>tests/Performance</directory>
         </testsuite>
     </testsuites>
     <coverage>
@@ -25,6 +35,7 @@
         </include>
     </source>
     <php>
+        <ini name="memory_limit" value="1G"/>
         <env name="APP_KEY" value="AckfSECXIvnK5r28GVIWUAxmbBSjTsmF"/>
         <env name="APP_ENV" value="testing"/>
         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
