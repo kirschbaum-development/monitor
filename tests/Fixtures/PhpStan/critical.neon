@@ -1,0 +1,9 @@
+includes:
+    - ../../../extension.neon
+parameters:
+    level: 0
+    paths:
+        - ../../../workbench/app/ControlPoints
+    monitor:
+        criticalNamespaces:
+            - Workbench\Monitor\ControlPoints

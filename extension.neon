@@ -1,0 +1,25 @@
+# Include from the application's phpstan.neon:
+#
+#     includes:
+#         - vendor/kirschbaum-development/monitor/extension.neon
+#     parameters:
+#         monitor:
+#             criticalNamespaces:
+#                 - App\ControlPoints
+#
+parameters:
+    monitor:
+        criticalNamespaces: []
+
+parametersSchema:
+    monitor: structure([
+        criticalNamespaces: listOf(string())
+    ])
+
+services:
+    -
+        class: Kirschbaum\Monitor\Analysis\PhpStan\CriticalNamespaceRule
+        arguments:
+            namespaces: %monitor.criticalNamespaces%
+        tags:
+            - phpstan.rules.rule

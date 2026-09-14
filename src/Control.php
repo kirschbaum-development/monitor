@@ -55,9 +55,14 @@ final class Control
     /** @var Closure|class-string<Escalation>|null */
     private Closure|string|null $escalation = null;
 
-    public function __construct(private readonly string $name, string|object|null $origin = null)
+    /**
+     * @param  bool  $validate  false only when describing a point whose name may be invalid
+     */
+    public function __construct(private readonly string $name, string|object|null $origin = null, bool $validate = true)
     {
-        PointName::validate($name);
+        if ($validate) {
+            PointName::validate($name);
+        }
 
         $this->origin = $this->originOf($origin);
     }
