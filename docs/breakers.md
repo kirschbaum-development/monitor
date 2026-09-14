@@ -39,6 +39,8 @@ Failures older than the window are forgotten, so five failures spread over an ho
 
 State is kept in the cache so every worker and web process sees the same circuit. `breakers.store` names the cache store to use, or null for the default; `breakers.prefix` is prepended to the circuit name to make the key.
 
+The circuit is only shared as far as the cache store is. On the `array` or `file` driver each process keeps its own circuit and the half-open probe lock protects nothing beyond that process, so a breaker that must be shared across web workers and queue workers needs a shared store such as Redis, Memcached or the database driver. Point `breakers.store` at one when the application's default cache is local.
+
 ```php
 'breakers' => [
     'store' => env('MONITOR_BREAKER_STORE'),
