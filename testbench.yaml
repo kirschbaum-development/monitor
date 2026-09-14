@@ -1,6 +1,7 @@
 laravel: '@testbench'
 
 providers:
+  - Kirschbaum\Redactor\RedactorServiceProvider
   - Kirschbaum\Monitor\MonitorServiceProvider
 
 workbench:

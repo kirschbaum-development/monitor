@@ -2,213 +2,47 @@
 
 declare(strict_types=1);
 
-namespace Tests\Unit;
+use Illuminate\Support\Facades\Context;
+use Kirschbaum\Monitor\Exceptions\InvalidTraceId;
+use Kirschbaum\Monitor\Trace\Trace;
+use Kirschbaum\Monitor\Trace\TraceParent;
 
-use Kirschbaum\Monitor\Trace;
-use LogicException;
+describe('trace', function (): void {
+    beforeEach(fn () => resolve(Trace::class)->clear());
 
-it('starts a new trace with generated UUID', function () {
-    $trace = new Trace;
+    it('starts a 32 hex trace on demand and keeps it', function (): void {
+        $trace = resolve(Trace::class);
 
-    expect($trace->hasNotStarted())->toBeTrue()
-        ->and($trace->hasStarted())->toBeFalse();
+        expect($trace->hasStarted())->toBeFalse()->and($trace->current())->toBeNull();
 
-    $trace->start();
+        $id = $trace->id();
 
-    expect($trace->hasStarted())->toBeTrue()
-        ->and($trace->hasNotStarted())->toBeFalse();
+        expect($id)->toMatch('/^[0-9a-f]{32}$/')
+            ->and($trace->id())->toBe($id)
+            ->and($trace->pickup('ffffffffffffffffffffffffffffffff'))->toBe($id)
+            ->and(Context::get('trace_id'))->toBe($id);
+    });
 
-    $traceId = $trace->id();
-    expect($traceId)->toBeString()
-        ->and(strlen($traceId))->toBe(36) // UUID length
-        ->and($traceId)->toMatch('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i');
-});
+    it('adopts a valid id and normalises a uuid', function (): void {
+        $trace = resolve(Trace::class);
 
-it('throws exception when starting already started trace', function () {
-    $trace = new Trace;
-    $trace->start();
+        expect($trace->pickup('9D2B4E8F-3A1C-4D5E-8F2A-1B3C4D5E6F7A'))->toBe('9d2b4e8f3a1c4d5e8f2a1b3c4d5e6f7a')
+            ->and($trace->override('00000000000000000000000000000001'))->toBe('00000000000000000000000000000001')
+            ->and($trace->start())->not->toBe('00000000000000000000000000000001');
+    });
 
-    expect(fn () => $trace->start())
-        ->toThrow(LogicException::class, 'Trace has already been started.');
-});
+    it('rejects an invalid id', function (string $bad): void {
+        expect(fn () => resolve(Trace::class)->override($bad))->toThrow(InvalidTraceId::class);
+    })->with(['nope', '', '00000000000000000000000000000000', 'zz2b4e8f3a1c4d5e8f2a1b3c4d5e6f7a', '<script>']);
 
-it('throws exception when accessing ID of unstarted trace', function () {
-    $trace = new Trace;
-
-    expect(fn () => $trace->id())
-        ->toThrow(LogicException::class, 'Trace ID has not been started.');
-});
-
-it('overrides trace ID with custom UUID', function () {
-    $trace = new Trace;
-    $customUuid = 'custom-test-uuid-12345';
-
-    $trace->override($customUuid);
-
-    expect($trace->hasStarted())->toBeTrue()
-        ->and($trace->id())->toBe($customUuid);
-});
-
-it('pickup starts new trace when no trace ID provided and trace not started', function () {
-    $trace = new Trace;
-
-    expect($trace->hasNotStarted())->toBeTrue();
-
-    $result = $trace->pickup();
-
-    expect($result)->toBe($trace) // Should return same instance
-        ->and($trace->hasStarted())->toBeTrue()
-        ->and($trace->id())->toBeString()
-        ->and(strlen($trace->id()))->toBe(36);
-});
-
-it('pickup overrides trace ID when custom trace ID provided and trace not started', function () {
-    $trace = new Trace;
-    $customUuid = 'pickup-custom-uuid-67890';
-
-    expect($trace->hasNotStarted())->toBeTrue();
-
-    $result = $trace->pickup($customUuid);
-
-    expect($result)->toBe($trace) // Should return same instance
-        ->and($trace->hasStarted())->toBeTrue()
-        ->and($trace->id())->toBe($customUuid);
-});
-
-it('pickup returns same instance when trace already started', function () {
-    $trace = new Trace;
-    $trace->start();
-    $originalId = $trace->id();
-
-    // Should return same instance and not change the trace ID
-    $result = $trace->pickup('should-not-override');
-
-    expect($result)->toBe($trace)
-        ->and($trace->id())->toBe($originalId); // Original ID preserved
-});
-
-it('pickup with custom ID returns same instance when trace already started', function () {
-    $trace = new Trace;
-    $customUuid = 'already-started-uuid';
-    $trace->override($customUuid);
-
-    // Should return same instance and not change the trace ID
-    $result = $trace->pickup('different-uuid');
-
-    expect($result)->toBe($trace)
-        ->and($trace->id())->toBe($customUuid); // Original ID preserved
-});
-
-it('hasStarted returns correct boolean values', function () {
-    $trace = new Trace;
-
-    // Initially not started
-    expect($trace->hasStarted())->toBeFalse();
-
-    // After starting
-    $trace->start();
-    expect($trace->hasStarted())->toBeTrue();
-});
-
-it('hasNotStarted returns correct boolean values', function () {
-    $trace = new Trace;
-
-    // Initially not started
-    expect($trace->hasNotStarted())->toBeTrue();
-
-    // After starting
-    $trace->start();
-    expect($trace->hasNotStarted())->toBeFalse();
-});
-
-it('hasNotStarted returns false after override', function () {
-    $trace = new Trace;
-
-    expect($trace->hasNotStarted())->toBeTrue();
-
-    $trace->override('override-test-uuid');
-
-    expect($trace->hasNotStarted())->toBeFalse();
-});
-
-it('generates different UUIDs for multiple trace instances', function () {
-    $trace1 = new Trace;
-    $trace2 = new Trace;
-
-    $trace1->start();
-    $trace2->start();
-
-    expect($trace1->id())->not->toBe($trace2->id());
-});
-
-it('can override trace ID multiple times before starting', function () {
-    $trace = new Trace;
-
-    $firstUuid = 'first-uuid';
-    $secondUuid = 'second-uuid';
-
-    $trace->override($firstUuid);
-    expect($trace->id())->toBe($firstUuid);
-
-    $trace->override($secondUuid);
-    expect($trace->id())->toBe($secondUuid);
-});
-
-it('maintains state correctly through fluent interface', function () {
-    $trace = new Trace;
-
-    // Test fluent interface with generated UUID
-    $result = $trace->pickup();
-    expect($result)->toBe($trace)
-        ->and($trace->hasStarted())->toBeTrue();
-
-    // Test fluent interface when already started
-    $originalId = $trace->id();
-    $result2 = $trace->pickup('ignored-uuid');
-    expect($result2)->toBe($trace)
-        ->and($trace->id())->toBe($originalId);
-});
-
-it('handles empty string override - started but ID throws exception', function () {
-    $trace = new Trace;
-
-    $trace->override('');
-
-    // Empty string is not null, so hasStarted() returns true
-    expect($trace->hasStarted())->toBeTrue()
-        ->and($trace->hasNotStarted())->toBeFalse();
-
-    // But empty string is falsy, so id() throws exception
-    expect(fn () => $trace->id())
-        ->toThrow(LogicException::class, 'Trace ID has not been started.');
-});
-
-it('pickup handles null explicitly vs no parameters', function () {
-    $trace1 = new Trace;
-    $trace2 = new Trace;
-
-    // Explicit null
-    $trace1->pickup(null);
-
-    // No parameter (defaults to null)
-    $trace2->pickup();
-
-    expect($trace1->hasStarted())->toBeTrue()
-        ->and($trace2->hasStarted())->toBeTrue()
-        ->and($trace1->id())->toBeString()
-        ->and($trace2->id())->toBeString()
-        ->and(strlen($trace1->id()))->toBe(36)
-        ->and(strlen($trace2->id()))->toBe(36);
-});
-
-it('returns correct ID after successful start', function () {
-    $trace = new Trace;
-    $trace->start();
-
-    $id = $trace->id();
-
-    // This specifically tests line 45: return $this->traceId;
-    expect($id)->toBeString()
-        ->and($id)->toBe($trace->id()) // Should be consistent
-        ->and(strlen($id))->toBe(36);
+    it('parses and formats traceparent', function (): void {
+        expect(TraceParent::parse('00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01'))->toBe('0af7651916cd43dd8448eb211c80319c')
+            ->and(TraceParent::parse('00-00000000000000000000000000000000-b7ad6b7169203331-01'))->toBeNull()
+            ->and(TraceParent::parse('00-0af7651916cd43dd8448eb211c80319c-0000000000000000-01'))->toBeNull()
+            ->and(TraceParent::parse('garbage'))->toBeNull()
+            ->and(TraceParent::parse(null))->toBeNull()
+            ->and(TraceParent::format('0af7651916cd43dd8448eb211c80319c', 'b7ad6b7169203331'))->toBe('00-0af7651916cd43dd8448eb211c80319c-b7ad6b7169203331-01')
+            ->and(TraceParent::format('0af7651916cd43dd8448eb211c80319c', 'b7ad6b7169203331', false))->toEndWith('-00')
+            ->and(TraceParent::format('0af7651916cd43dd8448eb211c80319c'))->toMatch('/^00-[0-9a-f]{32}-[0-9a-f]{16}-01$/');
+    });
 });

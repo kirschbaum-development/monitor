@@ -4,37 +4,46 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
-use Kirschbaum\Monitor\Support\LogRedactor;
+use Illuminate\Contracts\Container\Container;
+use Kirschbaum\Monitor\Breaker\CircuitBreaker;
+use Kirschbaum\Monitor\Logging\StructuredLogger;
+use Kirschbaum\Monitor\Trace\Trace;
 
 class Monitor
 {
+    public function __construct(protected Container $container) {}
+
+    /**
+     * Declare a control point.
+     */
+    public function control(string $name, string|object|null $origin = null): Control
+    {
+        return new Control($name, $origin);
+    }
+
+    /**
+     * The control points currently executing.
+     */
+    public function stack(): ControlStack
+    {
+        return $this->container->make(ControlStack::class);
+    }
+
     public function trace(): Trace
     {
-        return app(Trace::class);
-    }
-
-    public function log(string|object $origin = 'Monitor'): StructuredLogger
-    {
-        return StructuredLogger::from($origin);
-    }
-
-    public function time(): LogTimer
-    {
-        return app(LogTimer::class);
+        return $this->container->make(Trace::class);
     }
 
     public function breaker(): CircuitBreaker
     {
-        return app(CircuitBreaker::class);
+        return $this->container->make(CircuitBreaker::class);
     }
 
-    public function controlled(string $name, string|object|null $origin = null): Controlled
+    /**
+     * A PSR-3 logger bound to an origin, so its records carry origin and domain.
+     */
+    public function log(string|object $origin): StructuredLogger
     {
-        return Controlled::for($name, $origin);
-    }
-
-    public function redactor(): LogRedactor
-    {
-        return app(LogRedactor::class);
+        return new StructuredLogger($this->container, $origin);
     }
 }

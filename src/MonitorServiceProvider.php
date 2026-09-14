@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Kirschbaum\Monitor;
 
+use Illuminate\Contracts\Container\Container;
 use Illuminate\Support\ServiceProvider;
-use Kirschbaum\Monitor\Support\ControlledContext;
+use Kirschbaum\Monitor\Breaker\CircuitBreaker;
+use Kirschbaum\Monitor\Trace\Trace;
 
 class MonitorServiceProvider extends ServiceProvider
 {
@@ -13,13 +15,11 @@ class MonitorServiceProvider extends ServiceProvider
     {
         $this->mergeConfigFrom(__DIR__.'/../config/monitor.php', 'monitor');
 
-        $this->app->scoped(Monitor::class, fn () => new Monitor);
-        $this->app->scoped(Trace::class, fn () => new Trace);
-        $this->app->scoped(LogTimer::class, fn () => new LogTimer);
-        $this->app->scoped(CircuitBreaker::class, fn () => new CircuitBreaker);
-        $this->app->scoped(ControlledContext::class, fn () => new ControlledContext);
-
-        // Remove automatic logging channel merging - users should configure their own channels
+        $this->app->singleton(Monitor::class, fn (Container $app): Monitor => new Monitor($app));
+        $this->app->singleton(Trace::class);
+        $this->app->singleton(ControlStack::class);
+        $this->app->singleton(CircuitBreaker::class);
+        $this->app->bind(Runner::class, LiveRunner::class);
     }
 
     public function boot(): void
@@ -28,21 +28,8 @@ class MonitorServiceProvider extends ServiceProvider
             __DIR__.'/../config/monitor.php' => config_path('monitor.php'),
         ], 'monitor-config');
 
-        $this->publishes([
-            __DIR__.'/../config/logging-monitor.php' => config_path('logging-monitor.php'),
-        ], 'monitor-logging');
-
-        // Console auto-trace logic using configurable settings
-        $consoleAutoTraceEnabled = config('monitor.console_auto_trace.enabled', true);
-        $enableInTesting = config('monitor.console_auto_trace.enable_in_testing', false);
-
-        $shouldAutoTrace = $consoleAutoTraceEnabled
-            && $this->app->runningInConsole()
-            && ($enableInTesting || ! $this->app->environment('testing'))
-            && ! app(Trace::class)->hasStarted();
-
-        if ($shouldAutoTrace) {
-            app(Trace::class)->start();
+        if ($this->app->runningInConsole() && $this->app->make('config')->get('monitor.trace.console', true)) {
+            $this->app->make(Trace::class)->pickup();
         }
     }
 }
