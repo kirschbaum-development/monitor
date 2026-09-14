@@ -6,6 +6,7 @@ namespace Kirschbaum\Monitor;
 
 use Illuminate\Contracts\Container\Container;
 use Illuminate\Queue\Events\JobProcessing;
+use Illuminate\Routing\Router;
 use Illuminate\Support\ServiceProvider;
 use Kirschbaum\Monitor\Breaker\CircuitBreaker;
 use Kirschbaum\Monitor\Console\ExplainCommand;
@@ -13,6 +14,8 @@ use Kirschbaum\Monitor\Console\MakeControlPointCommand;
 use Kirschbaum\Monitor\Console\OutcomesCommand;
 use Kirschbaum\Monitor\Console\PointsCommand;
 use Kirschbaum\Monitor\Console\PruneCommand;
+use Kirschbaum\Monitor\Http\Middleware\CheckBreakers;
+use Kirschbaum\Monitor\Http\Middleware\StartTrace;
 use Kirschbaum\Monitor\Mcp\MonitorServer;
 use Kirschbaum\Monitor\Records\Recorder;
 use Kirschbaum\Monitor\Store\OutcomeStore;
@@ -81,6 +84,10 @@ class MonitorServiceProvider extends ServiceProvider
         PropagatesTrace::register($this->app->make(Trace::class));
 
         self::registerMcpServer($this->app);
+
+        $router = $this->app->make(Router::class);
+        $router->aliasMiddleware('monitor.trace', StartTrace::class);
+        $router->aliasMiddleware('monitor.breakers', CheckBreakers::class);
 
         if ($this->app->runningInConsole() && $this->app->make('config')->get('monitor.trace.console', true)) {
             $this->app->make(Trace::class)->pickup();

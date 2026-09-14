@@ -8,7 +8,6 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 use Kirschbaum\Monitor\Facades\Monitor;
-use Kirschbaum\Monitor\Http\Middleware\CheckBreakers;
 use Kirschbaum\Monitor\Http\Middleware\StartTrace;
 use Kirschbaum\Monitor\Trace\PicksUpJobTrace;
 use Kirschbaum\Monitor\Trace\Trace;
@@ -18,7 +17,8 @@ beforeEach(function (): void {
     resolve(Trace::class)->clear();
 
     Route::middleware(StartTrace::class)->get('/traced', fn (): array => ['trace' => Monitor::trace()->current()]);
-    Route::middleware(CheckBreakers::class.':stripe,efiling')->get('/guarded', fn (): string => 'through');
+    Route::middleware('monitor.breakers:stripe,efiling')->get('/guarded', fn (): string => 'through');
+    Route::middleware('monitor.trace')->get('/aliased', fn (): array => ['trace' => Monitor::trace()->current()]);
 });
 
 describe('StartTrace middleware', function (): void {
@@ -61,6 +61,10 @@ describe('StartTrace middleware', function (): void {
         resolve(Trace::class)->override('abcdefabcdefabcdefabcdefabcdefab');
 
         expect($this->withHeader('X-Trace-Id', 'ffffffffffffffffffffffffffffffff')->get('/traced')->json('trace'))->toBe('abcdefabcdefabcdefabcdefabcdefab');
+    });
+
+    it('is registered under the monitor.trace alias', function (): void {
+        expect($this->get('/aliased')->json('trace'))->toMatch('/^[0-9a-f]{32}$/');
     });
 
     it('honours configured header names', function (): void {
