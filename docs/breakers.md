@@ -4,6 +4,7 @@
 - [The State Machine](#the-state-machine)
 - [Storage](#storage)
 - [On a Control Point](#on-a-control-point)
+- [On an HTTP Call](#on-an-http-call)
 - [The Standalone API](#the-standalone-api)
 - [BreakerState](#breakerstate)
 - [The Route Middleware](#the-route-middleware)
@@ -73,6 +74,20 @@ Monitor::control('payment.charge', $this)
 ```
 
 When the circuit is open the point does not run its callback. The outcome's status is `refused`, its exception is a `Kirschbaum\Monitor\Risks\BreakerOpen` with the circuit's name and the seconds until it can be retried, and `run()` throws it. The point may recover from its own refusal with `recover(BreakerOpen::class, ...)`, and a parent point sees a child's refusal as the same exception.
+
+## On an HTTP Call
+
+Not every outbound call deserves a control point. `Http::breaker()` puts the same circuit on a request from Laravel's HTTP client:
+
+```php
+use Illuminate\Support\Facades\Http;
+
+$rates = Http::breaker('rates')->get('https://rates.test/latest')->json();
+
+Http::baseUrl('https://stripe.test')->breaker('stripe', after: 3, within: 60, for: 120)->post('/charges', $payload);
+```
+
+`breaker(string $name, ?int $after = null, ?int $within = null, ?int $for = null)` exists on the facade and on a `PendingRequest`; omitted numbers fall back to the configured defaults. It adds a Guzzle middleware that calls `permit()` before sending, throws `Kirschbaum\Monitor\Risks\BreakerOpen` without sending while the circuit is open, counts a connection failure or a 5xx response as a failure, and counts any other response as a success. The circuit is the one control points use, so `Http::breaker('stripe')` and a point with `breaker('stripe')` open and close together.
 
 ## The Standalone API
 

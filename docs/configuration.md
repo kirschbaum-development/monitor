@@ -9,6 +9,7 @@
 - [profiles](#profiles)
 - [trace](#trace)
 - [breakers](#breakers)
+- [once](#once)
 - [records](#records)
     - [records.levels](#recordslevels)
     - [records.store](#recordsstore)
@@ -96,6 +97,15 @@ Defaults for circuits used without explicit numbers, including the standalone `M
 | `within` | `int` | `60` | | Seconds a failure stays counted. |
 | `for` | `int` | `120` | | Seconds a circuit stays open before a probe is allowed. |
 
+## once
+
+Where the `once()` policy keeps its idempotency keys.
+
+| Key | Type | Default | Env | Meaning |
+| --- | --- | --- | --- | --- |
+| `store` | `string\|null` | `null` | `MONITOR_ONCE_STORE` | The cache store holding the keys; `null` is the default store. Keys are shared exactly as far as the store is. |
+| `prefix` | `string` | `'monitor:once:'` | | Cache key prefix, followed by the point name, a colon and the key. |
+
 ## records
 
 | Key | Type | Default | Env | Meaning |
@@ -152,6 +162,7 @@ Event names contain dots, so set the whole array rather than one nested key.
 | `MONITOR_TRACE_HEADER` | `trace.legacy_header` |
 | `MONITOR_TRACE_CONSOLE` | `trace.console` |
 | `MONITOR_BREAKER_STORE` | `breakers.store` |
+| `MONITOR_ONCE_STORE` | `once.store` |
 | `MONITOR_LOG_CHANNEL` | `records.channel` |
 | `MONITOR_REDACTION_PROFILE` | `records.redaction` |
 | `MONITOR_EXCEPTION_TRACE` | `records.exception_trace` |

@@ -55,7 +55,7 @@ class OutcomeStore
 
         $rows = array_map($this->row(...), $outcomes);
 
-        $this->query()->upsert($rows, ['run_id'], ['status', 'attempts', 'duration_ms', 'ended_at']);
+        $this->query()->upsert($rows, ['run_id'], ['status', 'attempts', 'duration_ms', 'started_at', 'ended_at']);
 
         return count($rows);
     }

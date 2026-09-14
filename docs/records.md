@@ -53,6 +53,7 @@ A record is the context array of one log line. The `Recorder` subscribes to Moni
 | `point.refused` | `status`, `attempts`, `duration_ms`, `limits_breached`, `exception`, `breaker` with `name`, `state` and `retry_after_s`. |
 | `point.ended` | `status`, `attempts`, `duration_ms`, `limits_breached`, and `exception` when the run failed. |
 | `escalation.failed` | Everything `point.ended` carries, plus `escalation_exception`: the exception the escalation handler itself threw. The original failure still propagates. |
+| `escalation.throttled` | Everything `point.ended` carries, plus `throttle_seconds`: an escalation was due but one for the same point already fired inside the window. Written at notice. |
 
 `status` is one of `succeeded`, `recovered`, `escalated` or `refused`. `limits_breached` is an object keyed by limit name, each holding `threshold` and `actual`; it is empty when nothing was breached.
 
@@ -191,7 +192,7 @@ use Kirschbaum\Monitor\Facades\Monitor;
 Monitor::log($this)->info('Index rebuilt', ['documents' => 4120]);
 ```
 
-The origin is the class of the object passed, or the string passed. The line is written as:
+The origin is the class of the object passed, or the string passed. Inside a running control point the origin can be left out: `Monitor::log()` binds to the innermost point's origin, so an ad hoc line inside `payment.charge` carries the same `origin` and `domain` as the point's records. Outside a point, `Monitor::log()` with no origin uses the `Kirschbaum\Monitor\Monitor` class. The line is written as:
 
 ```
 [Search:Indexer] Index rebuilt {"documents":4120,"origin":"App\\Services\\Search\\Indexer","domain":"Search"}
@@ -224,11 +225,12 @@ Every record is written by a listener, and the events are public. Alerting, metr
 | `Kirschbaum\Monitor\Events\PointRefused` | `outcome`. |
 | `Kirschbaum\Monitor\Events\PointEnded` | `outcome`. Dispatched after the status event, for every run. |
 | `Kirschbaum\Monitor\Events\EscalationFailed` | `outcome`, `exception`: what the escalation handler threw. |
+| `Kirschbaum\Monitor\Events\EscalationThrottled` | `outcome`, `seconds`: an escalation skipped by `throttleEscalation()`. Recorded as `escalation.throttled`. |
 | `Kirschbaum\Monitor\Events\BreakerOpened` | `breaker` (the name), `state`: a `BreakerState`. |
 | `Kirschbaum\Monitor\Events\BreakerHalfOpen` | `breaker`, `state`. |
 | `Kirschbaum\Monitor\Events\BreakerClosed` | `breaker`, `state`. |
 
-`Outcome` is described in [Getting Started](getting-started.md#the-outcome). `Kirschbaum\Monitor\RunInfo` is the readonly object the in-progress events carry, with public `point`, `id`, `parentId`, `traceId`, `domain`, `origin`, `profile`, `stack` and `context`; `Outcome::info()` returns the same object for a finished run. A listener that pages on escalation:
+`Outcome` is described in [Getting Started](getting-started.md#the-outcome); its `startedAt` and `endedAt` are `CarbonImmutable` instances, in `toArray()` as `started_at` and `ended_at`, and the store writes both. Records carry `duration_ms` rather than the two timestamps. `Kirschbaum\Monitor\RunInfo` is the readonly object the in-progress events carry, with public `point`, `id`, `parentId`, `traceId`, `domain`, `origin`, `profile`, `stack` and `context`; `Outcome::info()` returns the same object for a finished run. A listener that pages on escalation:
 
 ```php
 use Kirschbaum\Monitor\Events\PointEscalated;

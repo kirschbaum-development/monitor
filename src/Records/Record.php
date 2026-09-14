@@ -6,6 +6,7 @@ namespace Kirschbaum\Monitor\Records;
 
 use Kirschbaum\Monitor\Breaker\BreakerState;
 use Kirschbaum\Monitor\Events\EscalationFailed;
+use Kirschbaum\Monitor\Events\EscalationThrottled;
 use Kirschbaum\Monitor\Events\PointLimitBreached;
 use Kirschbaum\Monitor\Events\PointRetried;
 use Kirschbaum\Monitor\Outcome;
@@ -112,6 +113,17 @@ class Record
         return self::fromOutcome('escalation.failed', $event->outcome) + [
             'escalation_exception' => ExceptionSummary::from($event->exception),
             'message' => sprintf('%s %s escalation handler threw %s; the original failure still propagates', self::prefix($event->outcome->info()), $event->outcome->point, $event->exception::class),
+        ];
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function escalationThrottled(EscalationThrottled $event): array
+    {
+        return self::fromOutcome('escalation.throttled', $event->outcome) + [
+            'throttle_seconds' => $event->seconds,
+            'message' => sprintf('%s %s escalation skipped: one already fired inside the last %ds', self::prefix($event->outcome->info()), $event->outcome->point, $event->seconds),
         ];
     }
 

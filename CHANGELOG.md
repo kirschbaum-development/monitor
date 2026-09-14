@@ -154,6 +154,39 @@ lists every 0.1 surface and its replacement.
 - **Redaction degrades**: a Redactor failure inside the recorder or the MCP
   server never reaches a control point.
 
+### Added - after the first review
+
+- **Idempotency.** `once('invoice:'.$id, ttl: 3600)` runs a point at most once
+  per key inside a window; a second run is refused before anything executes
+  with a `Duplicate` risk. The key is released when the run fails inside the
+  policies and kept when it completed, because the side effect has happened.
+  Outermost in the pipeline, so a refused run never claims a key.
+- **A typed `run()`.** `Control::run()` carries a template, so PHPStan knows
+  the value a callback returns.
+- **`Http::breaker('stripe')`** on the HTTP client, and on any `PendingRequest`:
+  the same circuit a control point uses, refusing without sending while open
+  and counting connection failures and 5xx responses.
+- **Dispatchable points.** `ChargeCard::dispatch($invoice)` runs a control
+  point class as a queued job through `Queue\RunControlPoint`, named and
+  tagged after the point for Horizon; a run refused by an open breaker
+  releases the job for the breaker's retry-after instead of failing it.
+- **Corrections as classes.** `recover(Class, Handler::class)` with a class
+  implementing `Contracts\Correction`, resolved from the container and named
+  in the inventory.
+- **`escalateLimits()`** hands a run that completed but breached a limit to
+  the escalation, and **`throttleEscalation(seconds)`** lets at most one
+  escalation through per point per window, announcing the rest with
+  `EscalationThrottled`.
+- **`Monitor::log()` with no origin** binds to the running control point, so
+  ad hoc lines inside a point carry its origin and domain.
+- **`Outcome::$startedAt` and `$endedAt`**, written to the store's new
+  `started_at` column and to `ended_at` in place of the flush time.
+- **Jobs start clean.** A job hands off the control stack it inherited through
+  Context and keeps the dispatching run as `dispatched_from_run`, so a point
+  inside a job has no parent from another process. The
+  `Queue\Middleware\WaitForBreaker` job middleware releases any job for a
+  breaker's retry-after while the circuit is open.
+
 ### Changed
 
 - Requires PHP 8.3 to 8.5 and Laravel 12 or 13. Laravel 11 is no longer

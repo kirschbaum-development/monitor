@@ -220,6 +220,7 @@ return [
             'point.escalated' => 'error',
             'point.ended' => 'info',
             'escalation.failed' => 'critical',
+            'escalation.throttled' => 'notice',
             'breaker.opened' => 'error',
             'breaker.half_open' => 'notice',
             'breaker.closed' => 'info',

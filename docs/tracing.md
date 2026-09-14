@@ -105,7 +105,7 @@ The macro exists on the factory (`Http::traced()`) and on a pending request (`->
 
 Laravel's Context is serialised with a job when it is dispatched and restored when the job runs, so a job dispatched from inside a trace carries it and every record the job writes shares the ID. Nothing needs to be done for that.
 
-A job that arrives without a trace, because it was dispatched from a process that had none, gets a trace of its own when it starts: Monitor listens to `Illuminate\Queue\Events\JobProcessing` with `Kirschbaum\Monitor\Trace\PicksUpJobTrace`, which calls `pickup()`.
+A job that arrives without a trace, because it was dispatched from a process that had none, gets a trace of its own when it starts: Monitor listens to `Illuminate\Queue\Events\JobProcessing` with `Kirschbaum\Monitor\Trace\PicksUpJobTrace`, which calls `pickup()`. The same listener hands off the control stack the job inherited, so the job starts with no parent point and a `dispatched_from_run` id instead; see [Jobs](jobs.md#what-a-job-inherits).
 
 ## Console
 

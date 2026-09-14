@@ -3,6 +3,7 @@
 - [Introduction](#introduction)
 - [A Custom Policy](#a-custom-policy)
 - [A Custom Escalation](#a-custom-escalation)
+- [A Custom Correction](#a-custom-correction)
 - [Listening to Events](#listening-to-events)
 - [A Custom Inventory Rule](#a-custom-inventory-rule)
 - [Domain Resolution](#domain-resolution)
@@ -108,6 +109,32 @@ class PagePayments implements Escalation
 ```
 
 It is resolved from the container, so constructor injection works. Name it on the point with `escalate(PagePayments::class)`. It is called after the escalation has been recorded and before the exception propagates; if it throws, an `EscalationFailed` event and an `escalation.failed` record say so, and the original exception still leaves the point. A closure passed to `escalate()` behaves the same way.
+
+## A Custom Correction
+
+A correction is a class implementing `Kirschbaum\Monitor\Contracts\Correction`, for a recovery that needs injected services or is shared between points:
+
+```php
+namespace App\Corrections;
+
+use Kirschbaum\Monitor\Contracts\Correction;
+use Kirschbaum\Monitor\Outcome;
+use Throwable;
+
+class QueueForManualFiling implements Correction
+{
+    public function __construct(private readonly FilingQueue $queue) {}
+
+    public function __invoke(Throwable $exception, Outcome $outcome): mixed
+    {
+        $this->queue->push($outcome->context['filing'], $exception->getMessage());
+
+        return Filing::queuedForManualHandling();
+    }
+}
+```
+
+It is resolved from the container when the risk occurs and named on the point with `recover(FilingRejected::class, QueueForManualFiling::class)`. Its return value is the result of the point, `null` included; throwing from it escalates, as from a closure. The inventory lists it by class name under `corrections`.
 
 ## Listening to Events
 

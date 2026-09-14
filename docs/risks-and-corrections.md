@@ -6,9 +6,12 @@
     - [Order and Matching](#order-and-matching)
     - [The Handler's Arguments](#the-handlers-arguments)
     - [Throwing From a Correction](#throwing-from-a-correction)
+    - [Corrections as Classes](#corrections-as-classes)
 - [The Catch-All](#the-catch-all)
 - [escalate()](#escalate)
     - [Escalation Classes](#escalation-classes)
+    - [Escalating on a Breached Limit](#escalating-on-a-breached-limit)
+    - [Throttling Escalation](#throttling-escalation)
     - [When the Escalation Fails](#when-the-escalation-fails)
 - [Risks Monitor Raises](#risks-monitor-raises)
 
@@ -85,6 +88,30 @@ A handler that throws escalates with the exception it threw; the original failur
 
 A correction that throws is noted on the outcome's timeline as `correction.threw`.
 
+### Corrections as Classes
+
+A correction can be a class instead of a closure, so it can be injected, reused across points and named in the inventory. It implements `Kirschbaum\Monitor\Contracts\Correction` and is resolved from the container when the risk occurs:
+
+```php
+use Kirschbaum\Monitor\Contracts\Correction;
+
+class DeclineHandler implements Correction
+{
+    public function __construct(private readonly Notifier $notifier) {}
+
+    public function __invoke(Throwable $exception, Outcome $outcome): mixed
+    {
+        $this->notifier->cardDeclined($outcome->context['invoice']);
+
+        return ChargeResult::declined($exception->code);
+    }
+}
+
+->recover(CardDeclined::class, DeclineHandler::class)
+```
+
+The return value is the result, exactly as with a closure. Passing a class that does not implement `Correction` throws `InvalidControlPoint` at declaration time. `describe()` lists corrections under `corrections`, as the class name or `closure`. See [Extending](extending.md#a-custom-correction) for a fuller example.
+
 ## The Catch-All
 
 `recover(Throwable::class, fn () => ...)` declared last is the explicit catch-all: every failure becomes that value and nothing escalates.
@@ -130,13 +157,36 @@ class PagePayments implements Escalation
 
 Passing a class name that does not implement `Escalation` throws `InvalidControlPoint` at declaration time. The inventory shows the class name; a closure shows as `closure`.
 
+### Escalating on a Breached Limit
+
+`within()` records a slow run without failing it. To have a run that completed but breached a limit reach the escalation as well, so a charge that took fourteen seconds is seen by the same people as a charge that failed:
+
+```php
+->within(5)
+->escalate(PagePayments::class)
+->escalateLimits()
+```
+
+`escalateLimits(bool $escalate = true)` hands any outcome with an entry in `limitsBreached` to the escalation after its events have fired. The outcome's status is still `succeeded` or `recovered`; the handler can tell a breach from a failure by `$outcome->exception` being null and `$outcome->limitsBreached` not being empty. `describe()` shows it as `escalate_limits`.
+
+### Throttling Escalation
+
+While a dependency is down a breaker refuses hundreds of runs, and each would escalate. `throttleEscalation(int $seconds)` lets at most one escalation through per point per window:
+
+```php
+->escalate(PagePayments::class)
+->throttleEscalation(600)
+```
+
+The first escalation in a window claims a cache key, `monitor:escalation:{point}`, for the window; the rest are skipped. A skipped escalation still has its `PointEscalated` event and record; it adds an `escalation.throttled` note to the outcome's timeline and dispatches `Kirschbaum\Monitor\Events\EscalationThrottled` with the outcome and the window, so a listener can count what was suppressed. `describe()` shows the window as `escalation_throttle`.
+
 ### When the Escalation Fails
 
 An escalation that throws does not replace the original failure. The original still propagates, and a `Kirschbaum\Monitor\Events\EscalationFailed` event carries the outcome and the escalation's exception, which the recorder writes as an `escalation.failed` record at `critical` level. The pager not firing is the loudest thing the package can say.
 
 ## Risks Monitor Raises
 
-Two failures come from the package rather than from the operation. Both extend `Kirschbaum\Monitor\Risks\Risk`, which extends `RuntimeException`, and both go through `recover()` and `escalate()` like anything else.
+Three failures come from the package rather than from the operation. Both extend `Kirschbaum\Monitor\Risks\Risk`, which extends `RuntimeException`, and both go through `recover()` and `escalate()` like anything else.
 
 **`Kirschbaum\Monitor\Risks\BreakerOpen`** is raised when the point's circuit breaker is open and nothing was attempted. The run's status is `Refused`, `run()` throws it, and a parent point sees it as an ordinary exception. A point can recover from its own refusal:
 
@@ -155,3 +205,12 @@ Two failures come from the package rather than from the operation. Both extend `
 ```
 
 See [Policies and Limits](policies-and-limits.md#ensure) for when `ensure()` runs.
+
+**`Kirschbaum\Monitor\Risks\Duplicate`** is raised by the `once()` policy when a run for the same idempotency key already exists inside the window, before anything executed. `$e->key` is the key and `$e->originalRunId` the run that holds it, when the cache still has it:
+
+```php
+->once('invoice:'.$invoice->id)
+->recover(Duplicate::class, fn (Duplicate $e) => ChargeResult::alreadyCharged($e->originalRunId))
+```
+
+See [Policies and Limits](policies-and-limits.md#once) for when the key is released.

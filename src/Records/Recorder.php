@@ -10,6 +10,7 @@ use Kirschbaum\Monitor\Events\BreakerClosed;
 use Kirschbaum\Monitor\Events\BreakerHalfOpen;
 use Kirschbaum\Monitor\Events\BreakerOpened;
 use Kirschbaum\Monitor\Events\EscalationFailed;
+use Kirschbaum\Monitor\Events\EscalationThrottled;
 use Kirschbaum\Monitor\Events\PointEnded;
 use Kirschbaum\Monitor\Events\PointEscalated;
 use Kirschbaum\Monitor\Events\PointLimitBreached;
@@ -40,6 +41,7 @@ class Recorder
             PointRefused::class => 'refused',
             PointEnded::class => 'ended',
             EscalationFailed::class => 'escalationFailed',
+            EscalationThrottled::class => 'escalationThrottled',
             BreakerOpened::class => 'breakerOpened',
             BreakerHalfOpen::class => 'breakerHalfOpen',
             BreakerClosed::class => 'breakerClosed',
@@ -84,6 +86,11 @@ class Recorder
     public function escalationFailed(EscalationFailed $event): void
     {
         $this->write(Record::escalationFailed($event));
+    }
+
+    public function escalationThrottled(EscalationThrottled $event): void
+    {
+        $this->write(Record::escalationThrottled($event));
     }
 
     public function breakerOpened(BreakerOpened $event): void

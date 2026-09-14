@@ -10,7 +10,7 @@
     "event": {
       "enum": [
         "point.started", "point.retried", "point.limit", "point.recovered", "point.escalated", "point.refused", "point.ended",
-        "escalation.failed", "breaker.opened", "breaker.half_open", "breaker.closed"
+        "escalation.failed", "escalation.throttled", "breaker.opened", "breaker.half_open", "breaker.closed"
       ]
     },
     "point": { "type": "string", "description": "The control point name, e.g. payment.charge." },
@@ -53,6 +53,7 @@
       }
     },
     "escalation_exception": { "$ref": "#/properties/exception" },
+    "throttle_seconds": { "type": "integer", "description": "On escalation.throttled: the window inside which one escalation already fired." },
     "breaker": {
       "type": ["object", "null"],
       "properties": {

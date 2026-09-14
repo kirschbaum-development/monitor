@@ -46,6 +46,8 @@ ChargeCard::attempt($invoice); // Outcome: ->status, ->value, ->exception
 
 Use `attempt()` when the caller branches on the outcome and `run()` when it wants the value. Points nest: a child's escalation reaches the parent's `recover()`, and retries never compose across the stack.
 
+An operation that moves money or files with an external system also declares `->once('invoice:'.$id)` with an idempotency key, so a retried job or a double submit is refused with a `Duplicate` risk instead of running twice. To run a point on the queue, `ChargeCard::dispatch($invoice)`: the queue keeps its retries, the point keeps its policies, and a run refused by an open breaker releases the job for the breaker's retry-after. For an outbound call that does not deserve a point, `Http::breaker('stripe')->post(...)` puts the same circuit on the request.
+
 Rules that `php artisan monitor:points --check` enforces:
 
 - Names are dotted lowercase: `domain.operation`, unique across the app.
@@ -55,7 +57,7 @@ Rules that `php artisan monitor:points --check` enforces:
 
 ### Risks and corrections
 
-`recover(SomeException::class, fn ($e, Outcome $partial) => $value)` declares an expected failure and what to return instead. The handler's return value **is** the result, `null` included. To escalate from a handler, throw. Do not use `try/catch` around the operation for expected failures; declare them.
+`recover(SomeException::class, fn ($e, Outcome $partial) => $value)` declares an expected failure and what to return instead; a class implementing `Kirschbaum\Monitor\Contracts\Correction` can stand in for the closure. The handler's return value **is** the result, `null` included. To escalate from a handler, throw. Do not use `try/catch` around the operation for expected failures; declare them. `escalateLimits()` also escalates a slow success; `throttleEscalation(600)` pages at most once per window during an outage.
 
 ### Limits
 

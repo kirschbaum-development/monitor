@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 use Illuminate\Contracts\Config\Repository;
-use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Kirschbaum\Monitor\Contracts\Correction;
-use Kirschbaum\Monitor\Events\EscalationThrottled;
 use Kirschbaum\Monitor\Exceptions\InvalidControlPoint;
 use Kirschbaum\Monitor\Facades\Monitor;
 use Kirschbaum\Monitor\Outcome;
 use Tests\Fixtures\CardDeclined;
+use TiMacDonald\Log\LogFake;
 use Workbench\Monitor\ControlPoints\Escalations\PagePayments;
 
 final class DeclineHandler implements Correction
@@ -55,7 +55,7 @@ describe('escalation on limits', function (): void {
 
 describe('throttled escalation', function (): void {
     it('escalates at most once per window per point', function (): void {
-        Event::fake([EscalationThrottled::class]);
+        LogFake::bind();
         $control = fn () => Monitor::control('payment.charge')->escalate(PagePayments::class)->throttleEscalation(600);
 
         $control()->attempt(fn () => throw new CardDeclined);
@@ -64,8 +64,7 @@ describe('throttled escalation', function (): void {
 
         expect(PagePayments::$paged)->toHaveCount(2)
             ->and(array_map(fn (Outcome $o): string => $o->point, PagePayments::$paged))->toBe(['payment.charge', 'payment.refund']);
-        Event::assertDispatchedTimes(EscalationThrottled::class, 1);
-        Event::assertDispatched(EscalationThrottled::class, fn (EscalationThrottled $e): bool => $e->seconds === 600 && $e->outcome->timeline[array_key_last($e->outcome->timeline)]['event'] !== 'escalation.throttled');
+        Log::assertLoggedTimes(fn ($log): bool => ($log->context['event'] ?? null) === 'escalation.throttled' && $log->level === 'notice' && $log->context['throttle_seconds'] === 600 && str_contains($log->message, 'escalation skipped'), 1);
 
         $this->travel(601)->seconds();
         $control()->attempt(fn () => throw new CardDeclined);

@@ -140,6 +140,7 @@ The full documentation lives in [`docs/`](docs/README.md):
 | [Policies and Limits](docs/policies-and-limits.md) | Retry, Transaction, Breaker, pipeline order, the three limits, profiles. |
 | [Records](docs/records.md) | The record schema, levels, redaction, NDJSON, `Monitor::log()`, events. |
 | [Tracing](docs/tracing.md) | Trace ids, the middleware, `Http::traced()`, jobs, console. |
+| [Jobs](docs/jobs.md) | Dispatching a point as a job, Horizon tags, `WaitForBreaker`, what a job inherits. |
 | [Breakers](docs/breakers.md) | The state machine, the standalone API, the route middleware. |
 | [Store](docs/store.md) | Enabling the outcome store, what is written and when, `monitor:outcomes`, pruning. |
 | [Inventory](docs/inventory.md) | `monitor:points`, every rule, `--check` in CI, `monitor:explain`, `make:control-point`. |

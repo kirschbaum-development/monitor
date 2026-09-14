@@ -119,6 +119,10 @@ expect(Monitor::breaker()->isOpen('stripe'))->toBeFalse();
 
 **Records.** `timacdonald/log-fake` captures records: after `LogFake::bind()`, `Log::channel()->logs()` holds every line with its level, message and context.
 
+**Idempotency.** `once()` keys live in the cache, which the test environment usually keeps in an `array` store that resets between tests. Inside one test, `Cache::flush()` or `travel()` past the window lets a point run again; `Monitor::fake()->failing()` releases the key the way a real failure does, so a test of the retry path needs no cleanup.
+
+**Dispatching.** `Queue::fake()` catches `ChargeCard::dispatch()` as a `Kirschbaum\Monitor\Queue\RunControlPoint` whose `displayName()` is the point name; `ChargeCard::dispatchSync()` under `Monitor::fake()` runs the point and records its outcome like any other. See [Jobs](jobs.md).
+
 **The store.** Rows are written after the request or job, so a test that reads the table first calls `app(Kirschbaum\Monitor\Store\StoreOutcomes::class)->flush()`; `pending()` says how many outcomes are waiting. See [Store](store.md#when-rows-are-written).
 
 ## Pest Expectations

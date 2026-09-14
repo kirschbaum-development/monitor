@@ -93,6 +93,7 @@ Both produce the same `Outcome`, the same events and the same records.
 | `exception` | The failure that was recovered from or escalated, or `null`. |
 | `recoveredFrom` | The risk class the correction handled, when recovered. |
 | `attempts`, `durationMs` | How many attempts were made and how long the whole run took. |
+| `startedAt`, `endedAt` | When the run started and ended, as `CarbonImmutable`. |
 | `limitsBreached` | Limits that were exceeded, keyed by name, each with `threshold` and `actual`. |
 | `policies` | The policies that ran, described. |
 | `context`, `stack`, `timeline` | The point's context, the stack of point names, and every transition with its offset in milliseconds. |

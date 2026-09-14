@@ -64,13 +64,14 @@ $control = Monitor::control('payment.charge', $this);
 | `domain(string $domain)` | Override the derived domain. |
 | `with(array $context)` | Merge context into what is recorded with every transition. Calling it twice merges. |
 | `profile(string $name)` | Start from a configured bundle of policies and limits. Throws `InvalidProfile` for an unknown name. |
-| `retry(...)`, `transaction(...)`, `breaker(...)`, `policy(Policy $policy)` | Policies; see [Policies and Limits](policies-and-limits.md). |
+| `retry(...)`, `transaction(...)`, `breaker(...)`, `once(...)`, `policy(Policy $policy)` | Policies; see [Policies and Limits](policies-and-limits.md). |
 | `within(...)`, `attempts(...)`, `ensure(...)` | Limits; see [Policies and Limits](policies-and-limits.md#limits). |
-| `recover(string $class, Closure $handler)` | Declare a risk and its correction; see [Risks and Corrections](risks-and-corrections.md). |
+| `recover(string $class, Closure\|string $handler)` | Declare a risk and its correction, a closure or a `Correction` class; see [Risks and Corrections](risks-and-corrections.md). |
 | `escalate(Closure\|string $escalation)` | Who is told when a failure no correction covers gets out. |
-| `run(Closure $callback)` | Execute; return the value or throw what escaped. |
+| `escalateLimits()`, `throttleEscalation(int $seconds)` | Also escalate a run that breached a limit; escalate at most once per window. See [Risks and Corrections](risks-and-corrections.md#escalating-on-a-breached-limit). |
+| `run(Closure $callback)` | Execute; return the value or throw what escaped. Typed with a template, so a callback returning `ChargeResult` gives PHPStan a `ChargeResult` back; a correction may return something else. |
 | `attempt(Closure $callback)` | Execute; return the `Outcome`. |
-| `describe()` | The static description the inventory uses: name, origin, domain, profile, policies, limits, risk classes, whether there is a catch-all, and the escalation as a class name, `'closure'` or `null`. |
+| `describe()` | The static description the inventory uses: name, origin, domain, profile, policies, limits, risk classes, corrections (class names or `'closure'`), whether there is a catch-all, the escalation as a class name, `'closure'` or `null`, `escalate_limits` and `escalation_throttle`. |
 
 `name()`, `origin()`, `resolvedDomain()`, `context()` and `profileName()` read back what was declared, and `ensures()`, `risks()`, `riskClasses()`, `hasCatchAll()`, `escalation()` and `hasEscalation()` read back the contract, which is what the inventory and a custom rule use. `resolvedPolicies()`, `resolvedWithin()` and `resolvedAttempts()` return the effective policies and limits after the profile is merged.
 
@@ -143,6 +144,8 @@ final class ChargeCard extends ControlPoint
 | --- | --- |
 | `ChargeCard::run(...$arguments)` | The value, or throws what escaped. Arguments go to the constructor. |
 | `ChargeCard::attempt(...$arguments)` | The `Outcome`. |
+| `ChargeCard::dispatch(...$arguments)` | A `PendingDispatch` of the job that runs the point on the queue; see [Jobs](jobs.md). |
+| `ChargeCard::dispatchSync(...$arguments)` | Runs the point through the queue synchronously. |
 | `(new ChargeCard(...))->execute()` | The `Outcome`, for an instance you already have. |
 | `(new ChargeCard(...))->toControl()` | The `Control` the class builds: the attribute's name, profile and domain, then `control()`, then `with($this->context())`. |
 | `ChargeCard::point()` | The `Point` attribute instance. |

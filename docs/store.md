@@ -65,7 +65,8 @@ Publishing copies the migration into `database/migrations` with a timestamp, the
 | `limits_breached` | json | Limit name to threshold and actual. |
 | `policies` | json | The policies that ran, described. |
 | `timeline` | json | Every transition with its offset in milliseconds. |
-| `ended_at` | timestamp(3), indexed | When the row was written. |
+| `started_at` | timestamp(3) | When the run started, from the outcome. |
+| `ended_at` | timestamp(3), indexed | When the run ended, from the outcome; not when the row was written. |
 
 Context and exception messages go through the same Redactor profile as records, `records.redaction`; see [Records](records.md#redaction).
 

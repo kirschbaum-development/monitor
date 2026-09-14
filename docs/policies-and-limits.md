@@ -5,6 +5,7 @@
     - [Retry](#retry)
     - [Transaction](#transaction)
     - [Breaker](#breaker)
+    - [Once](#once)
     - [Pipeline Order](#pipeline-order)
     - [policy()](#policy)
 - [Limits](#limits)
@@ -69,9 +70,28 @@ use Kirschbaum\Monitor\Policies\Breaker;
 
 When the circuit is open the run ends `Refused` with a `BreakerOpen` exception and nothing is attempted; see [Risks and Corrections](risks-and-corrections.md#risks-monitor-raises). The state machine, the shared cache store and the standalone API are in [Breakers](breakers.md).
 
+### Once
+
+```php
+->once('invoice:'.$invoice->id, ttl: 3600)
+```
+
+Run at most once per idempotency key inside a window. `once(string $key, int $ttl = 3600)` adds `Kirschbaum\Monitor\Policies\Once`, which claims the key in the cache with `Cache::add` before anything executes. A second run with the same key inside the window is refused before its callback runs, with a `Kirschbaum\Monitor\Risks\Duplicate` risk whose `$key` and `$originalRunId` say which run holds it; recover from it like any other risk:
+
+```php
+Monitor::control('payment.charge', $this)
+    ->once('invoice:'.$invoice->id)
+    ->recover(Duplicate::class, fn (Duplicate $e) => ChargeResult::alreadyCharged($e->originalRunId))
+    ->run(...);
+```
+
+The key is released when the run fails inside the policies, whether with an escalation or a declared risk, so a declined card or a gateway timeout can be tried again. It is kept when the run completed, even if `ensure()` then rejects the result, because the side effect has happened. It is the outermost policy, so a run the breaker refuses never claims a key.
+
+Keys are `once.prefix` (`monitor:once:` by default), then the point name, a colon and the key, in the cache store named by `once.store`; they are shared exactly as far as that store is. `Once::key($key, $ttl)` is the object form for `policy()`. The inventory describes it as `type`, `key` and `ttl`, and the timeline of a refused run notes `once.duplicate`.
+
 ### Pipeline Order
 
-Policies wrap the attempt outermost first, ordered by `Policy::order()` ascending: `Breaker` is 100, `Retry` 200, `Transaction` 300. Declaration order does not matter. `Control::resolvedPolicies()` returns the effective list in pipeline order.
+Policies wrap the attempt outermost first, ordered by `Policy::order()` ascending: `Once` is 50, `Breaker` 100, `Retry` 200, `Transaction` 300. Declaration order does not matter. `Control::resolvedPolicies()` returns the effective list in pipeline order.
 
 ### policy()
 

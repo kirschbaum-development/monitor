@@ -25,6 +25,7 @@ Everything else can be read as you need it.
 | [Policies and Limits](policies-and-limits.md) | `Retry`, `Transaction`, `Breaker`, pipeline order, custom policies, the three limits, and the shipped profiles. |
 | [Records](records.md) | The record every transition writes, its fields and levels, the JSON schema, the NDJSON tap, redaction, and the events behind it. |
 | [Tracing](tracing.md) | The trace ID, `traceparent` and the legacy header, the middleware, outgoing propagation with `Http::traced()`, queued jobs and console. |
+| [Jobs](jobs.md) | What a job inherits, `ChargeCard::dispatch()` and `RunControlPoint`, Horizon tags, the `WaitForBreaker` job middleware, and why the queue keeps its retries. |
 | [Breakers](breakers.md) | The circuit state machine, the standalone `Monitor::breaker()` API, and the `CheckBreakers` route middleware. |
 | [Store](store.md) | The optional outcomes table, when it is written, `monitor:outcomes`, `monitor:prune`, and retention. |
 | [Inventory](inventory.md) | `monitor:points`, the rules `--check` enforces, table, JSON and SARIF output, `monitor:explain`, and `make:control-point`. |
