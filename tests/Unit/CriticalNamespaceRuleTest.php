@@ -30,6 +30,7 @@ final class CriticalNamespaceRuleTest extends RuleTestCase
             $fixtures.'/Filings/SubmitFiling.php',
             $fixtures.'/Payments/InlineCharger.php',
             $fixtures.'/Escalations/PagePayments.php',
+            realpath(__DIR__.'/../../workbench/app/Support/StripeClient.php'),
         ], [
             [
                 'Workbench\Monitor\ControlPoints\Filings\Uncontrolled sits in a critical namespace but is not a control point and calls none.',
