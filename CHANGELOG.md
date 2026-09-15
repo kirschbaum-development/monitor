@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-## v1.0.0 - 2026-09-14
+## v1.0.0 - 2026-09-15
 
 A rewrite around the control point, designed from the problem rather than
 from 0.1. There is no compatibility layer; [docs/upgrading.md](docs/upgrading.md)
